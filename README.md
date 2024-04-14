@@ -1,5 +1,8 @@
 # vLLM Dashboard v0
 
+Live at https://simon-mo-workspace.observablehq.cloud/vllm-dashboard-v0/
+
+
 This is an [Observable Framework](https://observablehq.com/framework) project. To start the local preview server, run:
 
 ```
