@@ -9,6 +9,7 @@
     "observable": "observable"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^7.5.2",
     "@observablehq/framework": "latest",
     "@octokit/core": "^6.1.2",
     "d3-dsv": "^3.0.1",
