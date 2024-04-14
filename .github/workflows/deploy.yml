@@ -26,6 +26,8 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v2'
       - name: 'Use gcloud CLI'
         run: 'gcloud info'
+      - name: Test permission
+        run: 'bash docs/data/pypi-downloads.json.sh'
 
       - run: npm ci
       - run: npm run build
