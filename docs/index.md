@@ -16,7 +16,7 @@ const downloads = FileAttachment("./data/pypi-downloads.json").json();
 // only match 0.4 and 0.3
 const versionRegex = /^0\.[34]\./;
 const data = downloads.map(
-    d=>({...d, count: parseInt(d.count_), day: new Date(d.day)})
+    d=>({...d, count: parseInt(d.count_), day: new Date(d.day.value)})
 ).sort((a,b)=>a.version.localeCompare(b.version) || a.day - b.day).filter(
     d=>versionRegex.test(d.version)
 )

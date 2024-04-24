@@ -46,30 +46,35 @@ const commitData = await Promise.all(
     const prNumber = message.match(/#(\d+)/)?.[1];
 
     // fetch the PR
-    const pull = await octokit.request(
-      "GET /repos/{owner}/{repo}/pulls/{pull_number}",
-      {
-        owner: REPO_OWNER,
-        repo: REPO_NAME,
-        pull_number: prNumber,
-      }
-    );
+    try {
+      const pull = await octokit.request(
+        "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+        {
+          owner: REPO_OWNER,
+          repo: REPO_NAME,
+          pull_number: prNumber,
+        }
+      );
 
-    return {
-      //   msg: commitDetail.data.commit.message,
-      sha: commitDetail.data.sha,
-      lines: commitDetail.data.stats.total,
-      number: pull.data.number,
-      title: pull.data.title,
-      created_at: pull.data.created_at,
-      closed_at: pull.data.closed_at,
-      merged_at: pull.data.merged_at,
-      author: pull.data.user?.login,
-      durationDays: Math.round(
-        (new Date(pull.data.merged_at) - new Date(pull.data.created_at)) /
-          (1000 * 60 * 60 * 24)
-      ),
-    };
+      return {
+        //   msg: commitDetail.data.commit.message,
+        sha: commitDetail.data.sha,
+        lines: commitDetail.data.stats.total,
+        number: pull.data.number,
+        title: pull.data.title,
+        created_at: pull.data.created_at,
+        closed_at: pull.data.closed_at,
+        merged_at: pull.data.merged_at,
+        author: pull.data.user?.login,
+        durationDays: Math.round(
+          (new Date(pull.data.merged_at) - new Date(pull.data.created_at)) /
+            (1000 * 60 * 60 * 24)
+        ),
+      };
+    } catch (e) {
+      // console.error("Failed to fetch PR", e);
+      return;
+    }
   })
 );
-console.log(JSON.stringify(commitData, null, 2));
+console.log(JSON.stringify(commitData.filter((x) => x), null, 2));
