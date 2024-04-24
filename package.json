@@ -13,7 +13,8 @@
     "@observablehq/framework": "latest",
     "@octokit/core": "^6.1.2",
     "d3-dsv": "^3.0.1",
-    "d3-time-format": "^4.1.0"
+    "d3-time-format": "^4.1.0",
+    "jsdom": "^24.0.0"
   },
   "devDependencies": {
     "rimraf": "^5.0.5"

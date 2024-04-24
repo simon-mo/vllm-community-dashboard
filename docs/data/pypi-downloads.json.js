@@ -5,15 +5,18 @@ async function runQuery() {
 
   const query = `
     SELECT
+      project,
       TIMESTAMP_TRUNC(timestamp, DAY) AS day,
       file.version,
       COUNT(*) AS count_
     FROM
       bigquery-public-data.pypi.file_downloads
     WHERE
-      project = "vllm" AND
-      timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 60 DAY)
+      (project = "vllm" OR project = "tensorrt-llm")
+      AND
+      timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
     GROUP BY
+      project,
       day,
       file.version
   `;
