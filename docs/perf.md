@@ -161,15 +161,27 @@ const messageToUrl = search.reduce((acc, d) => {
   return acc;
 }, {});
 
+// convert this tall table to a wide table by pivoting the metric column
+const wideDataMap = ciData.reduce((acc, d) => {
+  if (!acc[d.commit_message]) {
+    acc[d.commit_message] = { commit_message: d.commit_message, build_datetime: d.build_datetime};
+  }
+  acc[d.commit_message][d.metric] = d.value;
+  return acc;
+}, {});
+const wideDataArray = Object.values(wideDataMap);
+
 display(
-  Inputs.table(search, {
-    columns: ["commit_message", "build_datetime", "metric", "value"],
+  Inputs.table(wideDataArray, {
+    // columns: ["commit_message", "build_datetime", "metric", "value"],
     width: {
       commit_message: 600,
     },
     format: {
       commit_message: (d) => htl.html`<a href="${messageToUrl[d]}">${d}</a>`,
     },
+    sort: "build_datetime",
+    reverse: true,
   })
 );
 ```
