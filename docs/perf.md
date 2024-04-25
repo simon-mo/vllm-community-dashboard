@@ -16,7 +16,6 @@ const commitShaToValues = commitData.reduce((acc, d) => {
   acc[d.sha] = d;
   return acc;
 }, {});
-console.log(commitShaToValues);
 
 const ciData = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
   (d) => {
@@ -26,7 +25,7 @@ const ciData = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
     d["value"] = parseFloat(d["value"]);
     return d;
   }
-);
+).sort((a, b) => a.build_datetime - b.build_datetime);
 ```
 
 ## Plots

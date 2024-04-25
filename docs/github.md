@@ -68,7 +68,7 @@ Number of PRs merged: ${ pulls.length }.
 ### PRs merged
 
 ```js
-Inputs.table(pulls, {
+display(Inputs.table(pulls, {
   columns: ["number", "title", "durationDays", "lines", "author"],
   layout: "fixed",
   width: {
@@ -76,7 +76,7 @@ Inputs.table(pulls, {
   },
   sort: "lines",
   reverse: true,
-});
+}));
 ```
 
 ## TGI
@@ -86,7 +86,7 @@ Number of PRs merged: ${ tgiPulls.length }.
 ### PRs merged
 
 ```js
-Inputs.table(tgiPulls, {
+display(Inputs.table(tgiPulls, {
   columns: ["number", "title", "durationDays", "lines", "author"],
   layout: "fixed",
   width: {
@@ -94,5 +94,5 @@ Inputs.table(tgiPulls, {
   },
   sort: "lines",
   reverse: true,
-});
+}));
 ```
