@@ -1,3 +1,6 @@
+---
+toc: false
+---
 
 # Github Activities
 
@@ -8,8 +11,8 @@ const pulls = await FileAttachment("./data/vllm-commits-pulls.json").json();
 const tgiPulls = await FileAttachment("./data/tgi-commits-pulls.json").json();
 
 const bothPulls = [
-    ...pulls.map(d=>({...d, repo: "vLLM"})),
-    ...tgiPulls.map(d=>({...d, repo: "TGI"}))
+  ...pulls.map((d) => ({ ...d, repo: "vLLM" })),
+  ...tgiPulls.map((d) => ({ ...d, repo: "TGI" })),
 ];
 
 // display(Plot.plot({
@@ -21,20 +24,41 @@ const bothPulls = [
 //   ]
 // }))
 
-
 display(
-Plot.plot({
-  marginLeft: 60,
-  y: {grid: true},
-  round: true,
-  color: {legend: true},
-  marks: [
-    Plot.rectY(bothPulls, Plot.binX({y: "count"}, {filter: (d) => d.repo === "vLLM", x: "durationDays", fill: "repo", insetLeft: 0})),
-    Plot.rectY(bothPulls, Plot.binX({y: "count"}, {filter: (d) => d.repo === "TGI", x: "durationDays", fill: "repo", insetRight: 0})),
-    Plot.ruleY([0])
-  ]
-})
-)
+  Plot.plot({
+    marginLeft: 60,
+    y: { grid: true },
+    round: true,
+    color: { legend: true },
+    marks: [
+      Plot.rectY(
+        bothPulls,
+        Plot.binX(
+          { y: "count" },
+          {
+            filter: (d) => d.repo === "vLLM",
+            x: "durationDays",
+            fill: "repo",
+            insetLeft: 0,
+          }
+        )
+      ),
+      Plot.rectY(
+        bothPulls,
+        Plot.binX(
+          { y: "count" },
+          {
+            filter: (d) => d.repo === "TGI",
+            x: "durationDays",
+            fill: "repo",
+            insetRight: 0,
+          }
+        )
+      ),
+      Plot.ruleY([0]),
+    ],
+  })
+);
 ```
 
 ## vLLM
@@ -42,48 +66,33 @@ Plot.plot({
 Number of PRs merged: ${ pulls.length }.
 
 ### PRs merged
+
 ```js
-Inputs.table(pulls,
-{
-    columns: [
-        "number", "title", "durationDays", "lines", "author"
-    ],
-    layout: "fixed",
-    width:{
-        title: 400,
-    },
-    sort: "lines",
-    reverse: true
-})
+Inputs.table(pulls, {
+  columns: ["number", "title", "durationDays", "lines", "author"],
+  layout: "fixed",
+  width: {
+    title: 400,
+  },
+  sort: "lines",
+  reverse: true,
+});
 ```
 
 ## TGI
 
-
-
 Number of PRs merged: ${ tgiPulls.length }.
 
 ### PRs merged
+
 ```js
-
-Inputs.table(tgiPulls,
-{
-    columns: [
-        "number", "title", "durationDays", "lines", "author"
-    ],
-    layout: "fixed",
-    width:{
-        title: 400,
-    },
-    sort: "lines",
-    reverse: true
-})
+Inputs.table(tgiPulls, {
+  columns: ["number", "title", "durationDays", "lines", "author"],
+  layout: "fixed",
+  width: {
+    title: 400,
+  },
+  sort: "lines",
+  reverse: true,
+});
 ```
-
-
-
-
-
-
-
-

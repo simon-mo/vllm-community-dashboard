@@ -2,11 +2,7 @@ import { Octokit } from "@octokit/core";
 
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
-export async function getPullDataFromCommit(
-  repoOwner,
-  repoName,
-  startAfterDate
-) {
+export async function getCommitData(repoOwner, repoName, startAfterDate) {
   const commits = [];
   let pageIdx = 1;
   while (true) {
@@ -25,6 +21,15 @@ export async function getPullDataFromCommit(
 
     pageIdx++;
   }
+  return commits;
+}
+
+export async function getPullDataFromCommit(
+  repoOwner,
+  repoName,
+  startAfterDate
+) {
+  const commits = await getCommitData(repoOwner, repoName, startAfterDate);
 
   // parallel fetch the detail of each commit
   const commitData = await Promise.all(
