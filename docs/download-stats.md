@@ -62,8 +62,6 @@ const tgiData = tgiDownloads
   .map((d) => ({ mergeCount: parseInt(d.mergeCount), date: new Date(d.date) }))
   .sort((a, b) => a.date - b.date);
 
-console.log(tgiData);
-
 display(
   resize((width) =>
     Plot.plot({
