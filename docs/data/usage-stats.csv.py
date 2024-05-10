@@ -62,9 +62,9 @@ WHERE last_90_days.day_stamp <= vllm_usage_view.ending_time
 ORDER BY day_stamp
 )
 
-SELECT day_stamp, gpu_type, model_architecture, count(*) as num_instances
+SELECT day_stamp, gpu_type, model_architecture, context, count(*) as num_instances
 FROM day_exploded
-GROUP BY day_stamp, gpu_type, model_architecture
+GROUP BY day_stamp, gpu_type, model_architecture, context
 """)
 
 df = cursor.fetchall_arrow().to_pandas()
