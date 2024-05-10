@@ -35,7 +35,12 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
       - name: Deploy to Observable Cloud
         # This parameter to `--message` will use the latest commit message
-        run: npm run deploy -- --message "$(git log -1 --pretty=%s)"
+        run: |
+          # retry
+          for i in 1 2 3; do
+            npm run deploy -- --message "$(git log -1 --pretty=%s)" && break
+          done
+        # retry on failure
         env:
           # Authentication information. See below for how to set this up.
           OBSERVABLE_TOKEN: ${{ secrets.OBSERVABLE_TOKEN }}
