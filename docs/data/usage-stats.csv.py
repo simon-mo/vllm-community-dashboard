@@ -1,6 +1,5 @@
 from databricks import sql
 import os
-import pandas as pd
 import io
 
 connection = sql.connect(
