@@ -32,6 +32,7 @@ jobs:
         env:
           BUILDKIT_API_TOKEN: ${{ secrets.BUILDKIT_API_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
       - name: Deploy to Observable Cloud
         # This parameter to `--message` will use the latest commit message
         run: npm run deploy -- --message "$(git log -1 --pretty=%s)"
