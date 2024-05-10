@@ -65,7 +65,6 @@ ORDER BY day_stamp
 SELECT day_stamp, gpu_type, model_architecture, count(*) as num_instances
 FROM day_exploded
 GROUP BY day_stamp, gpu_type, model_architecture
-HAVING count(*) > 1000
 """)
 
 df = cursor.fetchall_arrow().to_pandas()

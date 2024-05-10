@@ -12,6 +12,7 @@ Currently showing very high level summary of the usage data we collected to guid
 ```sql id=usage_stats_by_gpu_type
 select day_stamp, gpu_type, sum(num_instances) as num_instances
 from usage_stats
+where num_instances > 500
 group by day_stamp, gpu_type
 order by day_stamp, gpu_type
 ```
@@ -21,6 +22,7 @@ display(
   resize((width) =>
     Plot.plot({
       y: {grid: true},
+      marginLeft: 50,
       width,
       color: {legend: true},
       marks: [
@@ -34,6 +36,7 @@ display(
 ```sql id=usage_stats_by_model_architecture
 select day_stamp, model_architecture, sum(num_instances) as num_instances
 from usage_stats
+where num_instances > 500
 group by day_stamp, model_architecture
 order by day_stamp, model_architecture
 ```
@@ -43,6 +46,7 @@ display(
   resize((width) =>
     Plot.plot({
       y: {grid: true},
+      marginLeft: 50,
       width,
       color: {legend: true},
       marks: [
