@@ -1,6 +1,10 @@
-from databricks import sql
 import os
 import io
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
+from databricks import sql
 
 connection = sql.connect(
     server_hostname="dbc-7a98b378-1bdb.cloud.databricks.com",
