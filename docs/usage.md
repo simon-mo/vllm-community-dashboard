@@ -93,7 +93,7 @@ threshold AS (
         SELECT total_hours
         FROM ranked_usage
         ORDER BY total_hours DESC
-        LIMIT 10
+        LIMIT 20
     ) AS top_10
 )
 SELECT
