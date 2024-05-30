@@ -9,12 +9,39 @@ sql:
 Currently showing very high level summary of the usage data we collected to guide model and hardware optimizations. The Y-axis is the number of vLLM processes running on a given day.
 
 ## By GPU Type
+
 ```sql id=usage_stats_by_gpu_type
-select day_stamp, gpu_type, sum(num_instances) as num_instances
-from usage_stats
-where num_instances > 500
-group by day_stamp, gpu_type
-order by day_stamp, gpu_type
+WITH ranked_usage AS (
+    SELECT
+        gpu_type,
+        SUM(total_gpu_hours) / 90 AS total_hours,
+        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 90 DESC) AS rank
+    FROM
+        usage_stats
+    GROUP BY
+        gpu_type
+),
+threshold AS (
+    SELECT MIN(total_hours) AS threshold
+    FROM (
+        SELECT total_hours
+        FROM ranked_usage
+        ORDER BY total_hours DESC
+        LIMIT 10
+    ) AS top_10
+)
+SELECT
+    day_stamp,
+    gpu_type,
+    sum(total_gpu_hours) as total_gpu_hours
+FROM
+    usage_stats
+WHERE
+    total_gpu_hours >= (SELECT threshold FROM threshold)
+GROUP BY
+    day_stamp, gpu_type
+ORDER BY
+    day_stamp, gpu_type
 ```
 
 ```js
@@ -22,25 +49,51 @@ display(
   resize((width) =>
     Plot.plot({
       y: {grid: true},
-      marginLeft: 50,
+      marginLeft: 80,
       width,
       color: {legend: true},
       marks: [
-        Plot.rectY(usage_stats_by_gpu_type, {x: "day_stamp", y: "num_instances", interval: "day", fill: "gpu_type", tip: true}),
+        Plot.rectY(usage_stats_by_gpu_type, {x: "day_stamp", y: "total_gpu_hours", interval: "day", fill: "gpu_type", tip: true}),
         Plot.ruleY([0])
       ],
     })
   ))
 ```
 
-## By Model Architecture
+## By Model Architecture (with TP)
 
 ```sql id=usage_stats_by_model_architecture
-select day_stamp, model_architecture, sum(num_instances) as num_instances
-from usage_stats
-where num_instances > 500
-group by day_stamp, model_architecture
-order by day_stamp, model_architecture
+WITH ranked_usage AS (
+    SELECT
+        model_architecture_tp,
+        SUM(total_gpu_hours) / 90 AS total_hours,
+        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 90 DESC) AS rank
+    FROM
+        usage_stats
+    GROUP BY
+        model_architecture_tp
+),
+threshold AS (
+    SELECT MIN(total_hours) AS threshold
+    FROM (
+        SELECT total_hours
+        FROM ranked_usage
+        ORDER BY total_hours DESC
+        LIMIT 10
+    ) AS top_10
+)
+SELECT
+    day_stamp,
+    model_architecture_tp as model,
+    sum(total_gpu_hours) as total_gpu_hours
+FROM
+    usage_stats
+WHERE
+    total_gpu_hours >= (SELECT threshold FROM threshold)
+GROUP BY
+    day_stamp, model_architecture_tp
+ORDER BY
+    day_stamp, model_architecture_tp
 ```
 
 ```js
@@ -48,11 +101,11 @@ display(
   resize((width) =>
     Plot.plot({
       y: {grid: true},
-      marginLeft: 50,
+      marginLeft: 80,
       width,
       color: {legend: true},
       marks: [
-        Plot.rectY(usage_stats_by_model_architecture, {x: "day_stamp", y: "num_instances", interval: "day", fill: "model_architecture", tip: true}),
+        Plot.rectY(usage_stats_by_model_architecture, {x: "day_stamp", y: "total_gpu_hours", interval: "day", fill: "model", tip: true}),
         Plot.ruleY([0])
       ]
     })
@@ -62,9 +115,8 @@ display(
 ## By Usage Context
 
 ```sql id=usage_stats_by_usage_context
-select day_stamp, context, sum(num_instances) as num_instances
+select day_stamp, context, sum(total_gpu_hours) as total_gpu_hours
 from usage_stats
-where num_instances > 500
 group by day_stamp, context
 order by day_stamp, context
 ```
@@ -74,11 +126,11 @@ display(
   resize((width) =>
     Plot.plot({
       y: {grid: true},
-      marginLeft: 50,
+      marginLeft: 80,
       width,
       color: {legend: true},
       marks: [
-        Plot.rectY(usage_stats_by_usage_context, {x: "day_stamp", y: "num_instances", interval: "day", fill: "context", tip: true}),
+        Plot.rectY(usage_stats_by_usage_context, {x: "day_stamp", y: "total_gpu_hours", interval: "day", fill: "context", tip: true}),
         Plot.ruleY([0])
       ]
     })
