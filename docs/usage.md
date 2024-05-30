@@ -8,16 +8,25 @@ sql:
 
 Currently showing very high level summary of the usage data we collected to guide model and hardware optimizations. The Y-axis is the number of vLLM processes running on a given day.
 
+```js
+const filterWhales = view(Inputs.toggle({label: "Filter Whales", value: false}));
+```
+
 ## By GPU Type
 
 ```sql id=usage_stats_by_gpu_type
-WITH ranked_usage AS (
+WITH filtered_usage AS (
+  SELECT *
+  FROM usage_stats
+  WHERE is_whale <= ${filterWhales ? 0 : 1}
+),
+ranked_usage AS (
     SELECT
         gpu_type,
         SUM(total_gpu_hours) / 90 AS total_hours,
         RANK() OVER (ORDER BY SUM(total_gpu_hours) / 90 DESC) AS rank
     FROM
-        usage_stats
+        filtered_usage
     GROUP BY
         gpu_type
 ),
@@ -35,7 +44,7 @@ SELECT
     gpu_type,
     sum(total_gpu_hours) as total_gpu_hours
 FROM
-    usage_stats
+    filtered_usage
 WHERE
     total_gpu_hours >= (SELECT threshold FROM threshold)
 GROUP BY
@@ -63,13 +72,18 @@ display(
 ## By Model Architecture (with TP)
 
 ```sql id=usage_stats_by_model_architecture
-WITH ranked_usage AS (
+WITH filtered_usage AS (
+  SELECT *
+  FROM usage_stats
+  WHERE is_whale <= ${filterWhales ? 0 : 1}
+),
+ranked_usage AS (
     SELECT
         model_architecture_tp,
         SUM(total_gpu_hours) / 90 AS total_hours,
         RANK() OVER (ORDER BY SUM(total_gpu_hours) / 90 DESC) AS rank
     FROM
-        usage_stats
+        filtered_usage
     GROUP BY
         model_architecture_tp
 ),
@@ -87,7 +101,7 @@ SELECT
     model_architecture_tp as model,
     sum(total_gpu_hours) as total_gpu_hours
 FROM
-    usage_stats
+    filtered_usage
 WHERE
     total_gpu_hours >= (SELECT threshold FROM threshold)
 GROUP BY
@@ -115,10 +129,11 @@ display(
 ## By Usage Context
 
 ```sql id=usage_stats_by_usage_context
-select day_stamp, context, sum(total_gpu_hours) as total_gpu_hours
-from usage_stats
-group by day_stamp, context
-order by day_stamp, context
+SELECT day_stamp, context, sum(total_gpu_hours) as total_gpu_hours
+FROM usage_stats
+WHERE is_whale <= ${filterWhales ? 0 : 1}
+GROUP BY day_stamp, context
+ORDER BY day_stamp, context
 ```
 
 ```js

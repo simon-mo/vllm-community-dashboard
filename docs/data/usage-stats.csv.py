@@ -43,12 +43,14 @@ ORDER BY day_stamp
 )
 
 SELECT day_stamp, gpu_type, model_architecture, model_architecture_tp, context,
+       ip LIKE "221.194.167.%" as is_whale,
        count(*) as num_instances, sum(gpu_hour_per_day) as total_gpu_hours, sum(usage_hour_per_day) as total_usage_hours
 FROM day_exploded
-GROUP BY day_stamp, gpu_type, model_architecture, model_architecture_tp, context
+GROUP BY day_stamp, gpu_type, model_architecture, model_architecture_tp, context, ip
 """)
 
 df = cursor.fetchall_arrow().to_pandas()
+
 buff = io.StringIO()
 df.to_csv(buff, index=False)
 buff.seek(0)
