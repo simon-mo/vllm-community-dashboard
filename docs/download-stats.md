@@ -17,8 +17,7 @@ const downloads = (await FileAttachment("./data/pypi-downloads.json").json())
 const vllmDownloads = downloads.filter((d) => d.project == "vllm");
 const trtDownloads = downloads.filter((d) => d.project == "tensorrt-llm");
 
-// only match 0.4 and 0.3
-const versionRegex = /^0\.[34]\./;
+const versionRegex = /^0\.[3456789]\./;
 const vllmDownloadsFiltered = vllmDownloads.filter((d) =>
   versionRegex.test(d.version)
 );
