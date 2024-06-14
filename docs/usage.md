@@ -9,7 +9,7 @@ sql:
 Currently showing very high level summary of the usage data we collected to guide model and hardware optimizations. The Y-axis is the number of vLLM processes running on a given day.
 
 ```js
-const filterWhales = view(Inputs.toggle({label: "Filter Whales", value: false}));
+const filterWhales = view(Inputs.toggle({label: "Filter Whales", value: true}));
 ```
 
 ## By GPU Type
