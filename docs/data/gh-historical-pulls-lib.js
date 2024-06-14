@@ -1,8 +1,8 @@
 import { Octokit } from "octokit";
-import pLimit from "p-limit";
+// import pLimit from "p-limit";
 
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-const limit = pLimit(10);
+// const limit = pLimit(10);
 
 export async function getCommitData(repoOwner, repoName, startAfterDate) {
   const commits = [];
@@ -35,7 +35,7 @@ export async function getPullDataFromCommit(
 
   // parallel fetch the detail of each commit
   const commitData = await Promise.all(
-    commits.map(limit(async (commit) => {
+    commits.map(async (commit) => {
       const commitDetail = await octokit.request(
         "GET /repos/{owner}/{repo}/commits/{ref}",
         {
@@ -80,7 +80,7 @@ export async function getPullDataFromCommit(
         return;
       }
     })
-  ));
+  );
 
   // filter out the undefined
   return commitData.filter((x) => x);
