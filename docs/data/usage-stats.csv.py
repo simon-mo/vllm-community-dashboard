@@ -1,10 +1,11 @@
 import os
 import io
 import logging
+import sys
+from databricks import sql
+import requests
 
 logging.basicConfig(level=logging.DEBUG)
-
-from databricks import sql
 
 connection = sql.connect(
     server_hostname="dbc-7a98b378-1bdb.cloud.databricks.com",
@@ -12,9 +13,24 @@ connection = sql.connect(
     access_token=os.environ["DATABRICKS_TOKEN"],
 )
 
+model_registry = requests.get(
+    "https://raw.githubusercontent.com/vllm-project/vllm/main/vllm/model_executor/models/__init__.py"
+).content.decode("utf-8")
+
+lines = model_registry.split("\n")
+# find the line starts with _GENERATION_MODELS, then to line starts with _MODELS inclusive
+start = [
+    i for i, line in enumerate(lines) if line.startswith("_GENERATION_MODELS")
+][0]
+end = [i for i, line in enumerate(lines) if line.startswith("_MODELS")][0]
+model_registry = "\n".join(lines[start:end + 1])
+eval(compile(model_registry, "<string>", "exec"))
+models = list(_MODELS.keys())
+print("Filtering by models:", models, file=sys.stderr)
+
 cursor = connection.cursor()
 
-cursor.execute("""
+cursor.execute(f"""
 WITH last_90_days AS
 (
   SELECT date_sub(current_date(), d) AS day_stamp
@@ -30,6 +46,7 @@ SELECT
   *
 FROM
   vllm.vllm_usage_view
+WHERE model_architecture IN {tuple(models)}
 ),
 
 day_exploded AS
