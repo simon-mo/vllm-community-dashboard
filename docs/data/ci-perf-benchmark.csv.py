@@ -107,7 +107,7 @@ async def download_and_cache(raw_log_url, filepath, commit, commit_url,
 
 
 async def main():
-    builds = get_builds(ORG_SLUG, BRANCH, API_TOKEN, days=2)
+    builds = get_builds(ORG_SLUG, BRANCH, API_TOKEN)
     log(f"Found {len(builds)} builds for {BRANCH} branch")
 
     values = []
