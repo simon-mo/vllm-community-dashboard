@@ -2,12 +2,14 @@ import io
 import os
 import re
 import asyncio
+import aiofiles
 import sys
 from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
 import httpx
+import json
 
 
 def log(msg):
@@ -54,100 +56,81 @@ def get_builds(org_slug, branch, token, days=30):
     return all_builds
 
 
-# Define a list of dictionaries for patterns
-log_patterns = [{
-    'key': 'Average Latency',
-    'pattern': re.compile(r"Avg latency: ([\d.]+) seconds")
-}, {
-    'key':
-    '10% Percentile Latency',
-    'pattern':
-    re.compile(r"10% percentile latency: ([\d.]+) seconds")
-}, {
-    'key':
-    '25% Percentile Latency',
-    'pattern':
-    re.compile(r"25% percentile latency: ([\d.]+) seconds")
-}, {
-    'key':
-    '50% Percentile Latency',
-    'pattern':
-    re.compile(r"50% percentile latency: ([\d.]+) seconds")
-}, {
-    'key':
-    '75% Percentile Latency',
-    'pattern':
-    re.compile(r"75% percentile latency: ([\d.]+) seconds")
-}, {
-    'key':
-    '90% Percentile Latency',
-    'pattern':
-    re.compile(r"90% percentile latency: ([\d.]+) seconds")
-}, {
-    'key': 'Throughput',
-    'pattern': re.compile(r"Throughput: ([\d.]+) requests/s")
-}, {
-    'key':
-    'Token Throughput',
-    'pattern':
-    re.compile(r"Throughput: [\d.]+ requests/s, ([\d.]+) tokens/s")
-}, {
-    'key': 'Successful Requests',
-    'pattern': re.compile(r"Successful requests: +(\d+)")
-}, {
-    'key': 'Benchmark Duration',
-    'pattern': re.compile(r"Benchmark duration \(s\): +([\d.]+)")
-}, {
-    'key': 'Total Input Tokens',
-    'pattern': re.compile(r"Total input tokens: +(\d+)")
-}, {
-    'key': 'Total Generated Tokens',
-    'pattern': re.compile(r"Total generated tokens: +(\d+)")
-}, {
-    'key':
-    'Request Throughput',
-    'pattern':
-    re.compile(r"Request throughput \(req/s\): +([\d.]+)")
-}, {
-    'key':
-    'Input Token Throughput',
-    'pattern':
-    re.compile(r"Input token throughput \(tok/s\): +([\d.]+)")
-}, {
-    'key':
-    'Output Token Throughput',
-    'pattern':
-    re.compile(r"Output token throughput \(tok/s\): +([\d.]+)")
-}, {
-    'key': 'Mean TTFT',
-    'pattern': re.compile(r"Mean TTFT \(ms\): +([\d.]+)")
-}, {
-    'key': 'Median TTFT',
-    'pattern': re.compile(r"Median TTFT \(ms\): +([\d.]+)")
-}, {
-    'key': 'P99 TTFT',
-    'pattern': re.compile(r"P99 TTFT \(ms\): +([\d.]+)")
-}, {
-    'key': 'Mean TPOT',
-    'pattern': re.compile(r"Mean TPOT \(ms\): +([\d.]+)")
-}, {
-    'key': 'Median TPOT',
-    'pattern': re.compile(r"Median TPOT \(ms\): +([\d.]+)")
-}, {
-    'key': 'P99 TPOT',
-    'pattern': re.compile(r"P99 TPOT \(ms\): +([\d.]+)")
-}]
+
+
+async def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number, token, filename, commit, commit_url, build_datetime):
+    artifacts_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/artifacts"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(artifacts_url, headers=headers)
+        if response.status_code == 200:
+            artifacts = response.json()
+            for artifact in artifacts:
+                if artifact['filename'] == "benchmark_results.json":
+                    download_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/jobs/{artifact['job_id']}/artifacts/{artifact['id']}/download"
+                    download_response = await client.get(download_url, headers=headers)
+                    if download_response.status_code in [200, 302]:
+                        benchmark_results_url = download_response.json()['url']
+                        async with client.stream("GET", benchmark_results_url) as stream:
+                            async with aiofiles.open(filename, "wb") as f:
+                                async for chunk in stream.aiter_bytes(chunk_size=32768):
+                                    await f.write(chunk)
+                        log(f"Downloaded benchmarking results for commit {commit}")
+                        return filename, commit, commit_url, build_datetime
+        return None
+
+        
+
+    
+
+# def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number, token, filename, commit, commit_url, build_datetime):
+
+    
+#     # get artifact list:
+#     # curl -H "Authorization: Bearer $TOKEN" \
+#     # -X GET "https://api.buildkite.com/v2/organizations/{org.slug}/pipelines/{pipeline.slug}/builds/{build.number}/artifacts"
+#     artifacts_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/artifacts"
+#     headers = {
+#         "Authorization": f"Bearer {token}",
+#         "Content-Type": "application/json"
+#     }
+#     response = requests.get(artifacts_url, headers=headers)
+#     if response.status_code == 200:
+#         artifacts = response.json()
+#         for artifact in artifacts:
+#             if artifact['filename'] == "benchmark_results.md":
+#                 # get download URL:
+#                 # curl -H "Authorization: Bearer $TOKEN" \
+#                 # -X GET "https://api.buildkite.com/v2/organizations/{org.slug}/pipelines/{pipeline.slug}/builds/{build.number}/jobs/{job.id}/artifacts/{id}/download"
+#                 download_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/jobs/{artifact['job_id']}/artifacts/{artifact['id']}/download"
+#                 download_response = requests.get(download_url, headers=headers)
+#                 if download_response.status_code == 200:
+#                     # start the downloading
+#                     benchmark_results_url = download_response.url
+#                     benchmark_results_response = requests.get(benchmark_results_url, stream=True)
+#                     with open(filename, "wb") as f:
+#                         for chunk in benchmark_results_response.iter_content(chunk_size=8192):
+#                             f.write(chunk)
+#                     log(f"Downloaded benchmarking results for commit {commit}")
+#                     return filename, commit, commit_url, build_datetime
+                
+#     raise FileNotFoundError("Benchmarking results not found in the build artifacts")
 
 
 # Function to process log entries using defined patterns
-def extract_data_from_logs(logs, patterns=log_patterns):
-    results = {}
-    for line in logs.split('\n'):
-        for pattern_dict in patterns:
-            match = pattern_dict['pattern'].search(line)
-            if match:
-                results[pattern_dict['key']] = match.group(1)
-    return results
+def extract_data_from_logs(logs):
+    pattern = 'The json string for all benchmarking tables:\n```json\n(.*?)\n```'
+    match = re.search(pattern, logs, re.DOTALL)
+    
+    if match:
+        benchmarking_results = match.group(1)
+        return json.loads(benchmarking_results)
+    else:
+        return {}
 
 
 API_TOKEN = os.environ["BUILDKIT_API_TOKEN"]
@@ -155,18 +138,6 @@ ORG_SLUG = "vllm"
 BRANCH = "main"
 cache_dir = "/tmp/buildkite_logs"
 os.makedirs(cache_dir, exist_ok=True)
-
-columns = [
-    'commit', 'commit_url', 'build_datetime', 'Average Latency',
-    '10% Percentile Latency', '25% Percentile Latency',
-    '50% Percentile Latency', '75% Percentile Latency',
-    '90% Percentile Latency', 'Throughput', 'Token Throughput',
-    'Successful Requests', 'Benchmark Duration', 'Total Input Tokens',
-    'Total Generated Tokens', 'Request Throughput', 'Input Token Throughput',
-    'Output Token Throughput', 'Mean TTFT', 'Median TTFT', 'P99 TTFT',
-    'Mean TPOT', 'Median TPOT', 'P99 TPOT'
-]
-
 
 async def download_and_cache(raw_log_url, filepath, commit, commit_url,
                              build_datetime):
@@ -185,7 +156,7 @@ async def download_and_cache(raw_log_url, filepath, commit, commit_url,
 
 
 async def main():
-    builds = get_builds(ORG_SLUG, BRANCH, API_TOKEN)
+    builds = get_builds(ORG_SLUG, BRANCH, API_TOKEN, days=2)
     log(f"Found {len(builds)} builds for {BRANCH} branch")
 
     values = []
@@ -193,21 +164,34 @@ async def main():
     def insert_row(filepath, commit, commit_url, build_datetime):
         with open(filepath, "r") as f:
             logs = f.read()
-            results = extract_data_from_logs(logs)
-            results = [results.get(col, "") for col in columns[3:]]
-            values.append([commit, commit_url, build_datetime] + results)
+            results = json.loads(logs)
+            df = pd.DataFrame.from_dict(results)
+            df['commit'] = commit
+            df['commit_url'] = commit_url
+            df['build_datetime'] = build_datetime
+            df["test_name"] = df["Test name"]
+                
+            values.extend(df.to_dict(orient='records'))
 
     download_tasks = []
     for build in builds:
+        
+        # skip running builds
+        if build['state'] == "running":
+            continue
+        
         commit = build['commit']
         commit_url = f"{build['pipeline']['repository'].replace('.git', '')}/commit/{build['commit']}"
-        raw_log_url = None
+        
+        # find if the build contains the benchmarking data
+        contains_benchmark = False
         for job in build.get('jobs', []):
-            if 'name' in job and job['name'] == "Benchmarks":
-                raw_log_url = job['raw_log_url']
+            if 'name' in job and job['name'] == "A100 Benchmark":
+                contains_benchmark = True
                 break
-        if raw_log_url is None:
+        if not contains_benchmark:
             continue
+        
         build_datetime = build['created_at']
         filename = f"{build_datetime}_{commit}.log"
         filepath = os.path.join(cache_dir, filename)
@@ -216,21 +200,32 @@ async def main():
                 )
             insert_row(filepath, commit, commit_url, build_datetime)
         else:
-            download_tasks.append(
-                asyncio.create_task(
-                    download_and_cache(raw_log_url, filepath, commit,
-                                       commit_url, build_datetime)))
-
+            download_tasks.append(asyncio.create_task(
+                get_benchmark_results_and_save(ORG_SLUG,
+                                            build['pipeline']['slug'],
+                                            build['number'],
+                                            API_TOKEN,
+                                            filepath,
+                                            commit,
+                                            commit_url,
+                                            build_datetime)
+            ))
+        
+        
+        
+    # for task in download_tasks:
     for task in asyncio.as_completed(download_tasks):
         result = await task
         if result is None:
             continue
         insert_row(*result)
-
-    df = pd.DataFrame(values, columns=columns)
-    df = df.melt(id_vars=['commit', 'commit_url', 'build_datetime'],
-                 var_name="metric",
-                 value_name="value")
+        
+    df = pd.DataFrame.from_dict(values)
+    df = df.melt(
+        id_vars = ["commit", "commit_url", "build_datetime", "test_name"],
+        var_name="metric",
+        value_name="value"
+    )
     buf = io.StringIO()
     df.to_csv(buf, index=False)
     buf.seek(0)

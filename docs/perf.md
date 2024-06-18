@@ -28,36 +28,73 @@ const ciData = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
 ).sort((a, b) => a.build_datetime - b.build_datetime);
 ```
 
-## Plots
+
 
 ```js
+
 function createSelector(metricsSubset, defaultMetric) {
-  return Inputs.radio(metricsSubset, { label: "Metric", value: defaultMetric });
+  return Inputs.radio(metricsSubset, { label: "Test name", value: defaultMetric });
 }
 
-function makePlot(subsetData, { title } = {}) {
+// function makePlot(subsetData, { title } = {}) {
+//   return Plot.plot({
+//     title: title,
+//     y: { grid: true },
+//     width: 1200,
+//     marks: [
+//       Plot.dot(subsetData, {
+//         x: "build_datetime",
+//         y: "value",
+//         z: "metric",
+//         fill: "orange",
+//         fillOpacity: 0.5,
+//       }),
+//       Plot.tip(
+//         subsetData,
+//         Plot.pointer({
+//           x: "build_datetime",
+//           y: "value",
+//           title: (d) => [d.commit_message, d.metric, d.value].join("\n\n"),
+//         })
+//       ),
+//       Plot.lineY(
+//         subsetData,
+//         Plot.windowY(12, {
+//           x: "build_datetime",
+//           y: "value",
+//           z: "metric",
+//           stroke: "DarkTurquoise",
+//         })
+//       ),
+//     ],
+//     legend: { title: "Metric" },
+//   });
+// }
+
+
+function makeCombinedPlot(data, { title } = {}) {
   return Plot.plot({
     title: title,
     y: { grid: true },
     width: 1200,
     marks: [
-      Plot.dot(subsetData, {
+      Plot.dot(data, {
         x: "build_datetime",
         y: "value",
         z: "metric",
-        fill: "orange",
+        fill: "blue",
         fillOpacity: 0.5,
       }),
       Plot.tip(
-        subsetData,
+        data,
         Plot.pointer({
           x: "build_datetime",
           y: "value",
-          title: (d) => [d.commit_message, d.metric, d.value].join("\n\n"),
+          title: (d) => [d.commit_message, d.metric, d.value, d.test_name].join("\n\n"),
         })
       ),
       Plot.lineY(
-        subsetData,
+        data,
         Plot.windowY(12, {
           x: "build_datetime",
           y: "value",
@@ -69,83 +106,195 @@ function makePlot(subsetData, { title } = {}) {
     legend: { title: "Metric" },
   });
 }
+
+
 ```
 
-### Latency Benchmark
+## Latency tests
+
+
+This test suite aims to test vllm's end-to-end latency under a controlled setup.
+
+- Input length: 32 tokens.
+- Output length: 128 tokens.
+- Batch size: fixed (8).
+- Models: llama-3 8B, llama-3 70B, mixtral 8x7B.
+- Evaluation metrics: end-to-end latency (mean, median, p99).
+
+
 
 ```js
+
+const latencyTest = [
+  "latency_llama8B_tp1",
+  "latency_llama70B_tp4",
+  "latency_mixtral8x7B_tp2",
+];
+
+const latencyTestSelected = view(
+  createSelector(latencyTest, "latency_llama8B_tp1")
+);
+
+
 const latencyMetrics = [
-  "10% Percentile Latency",
-  "25% Percentile Latency",
-  "50% Percentile Latency",
-  "75% Percentile Latency",
-  "90% Percentile Latency",
+  "Mean latency (ms)",
+  "Median latency (ms)",
+  "P99 latency (ms)",
 ];
 
-let metricSelected = view(
-  createSelector(latencyMetrics, "50% Percentile Latency")
+const latencyMetricSelected = view(
+  Inputs.checkbox(latencyMetrics, {
+    label: "Latency",
+    value: ["Mean latency (ms)"],
+  })
 );
 ```
 
+
 ```js
-let subsetData = ciData.filter((d) => d.metric === metricSelected);
-display(makePlot(subsetData, { title: metricSelected }));
+let combinedData = [];
+for (let metric of latencyMetricSelected) {
+  let subsetData = ciData.filter((d) => d.metric === metric).filter((d) => d.test_name == latencyTestSelected);
+  combinedData = combinedData.concat(subsetData);
+}
+display(makeCombinedPlot(combinedData, { title: "Combined Latency Metrics" }));
 ```
 
-### Throughput Benchmark
+## Throughput tests
+
+
+This test suite aims to test vllm's throughput.
+
+- Input length: randomly sample 200 prompts from ShareGPT dataset (with fixed random seed).
+- Output length: the corresponding output length of these 200 prompts.
+- Batch size: dynamically determined by vllm to achieve maximum throughput.
+- Models: llama-3 8B, llama-3 70B, mixtral 8x7B.
+- Evaluation metrics: throughput.
+
+
 
 ```js
-const throughputMetrics = ["Throughput", "Token Throughput"];
 
-const throughputSelected = view(
-  createSelector(throughputMetrics, "Throughput")
-);
-```
-
-```js
-const throughputSubsetData = ciData.filter(
-  (d) => d.metric === throughputSelected
-);
-display(makePlot(throughputSubsetData, { title: throughputSelected }));
-```
-
-### Serving Benchmark (on ShareGPT)
-
-```js
-const servingMetrics = [
-  "Successful Requests",
-  "Benchmark Duration",
-  "Total Input Tokens",
-  "Total Generated Tokens",
-  "Request Throughput",
-  "Input Token Throughput",
-  "Output Token Throughput",
-  "Mean TTFT",
-  "Median TTFT",
-  "P99 TTFT",
-  "Mean TPOT",
-  "Median TPOT",
-  "P99 TPOT",
+const throughputTest = [
+  "throughput_llama8B_tp1",
+  "throughput_llama70B_tp4",
+  "throughput_mixtral8x7B_tp2",
 ];
 
-const servingSelected = view(
-  Inputs.checkbox(servingMetrics, {
-    label: "Metric",
-    value: ["Request Throughput", "Median TTFT", "Median TPOT"],
+const throughputTestSelected = view(
+  createSelector(throughputTest, "throughput_llama8B_tp1")
+);
+
+
+const throughputMetrics = [
+  "Tput (req/s)",
+];
+
+const throughputMetricSelected = view(
+  Inputs.checkbox(throughputMetrics, {
+    label: "Metrics",
+    value: ["Tput (req/s)"],
+  })
+);
+```
+
+
+```js
+let combinedData = [];
+for (let metric of throughputMetricSelected) {
+  let subsetData = ciData.filter((d) => d.metric === metric).filter((d) => d.test_name == throughputTestSelected);
+  combinedData = combinedData.concat(subsetData);
+}
+display(makeCombinedPlot(combinedData, { title: "Throughput" }));
+```
+
+
+## Serving Benchmark (on ShareGPT)
+
+
+This test suite aims to test vllm's real serving metrics.
+
+- Input length: randomly sample 200 prompts from ShareGPT dataset (with fixed random seed).
+- Output length: the corresponding output length of these 200 prompts.
+- Batch size: dynamically determined by vllm and the arrival pattern of the requests.
+- **Average QPS (query per second)**: 1, 4, 16 and inf. QPS = inf means all requests come at once. For other QPS values, the arrival time of each query is determined using a random Poisson process (with fixed random seed).
+- Models: llama-3 8B, llama-3 70B, mixtral 8x7B.
+- Evaluation metrics: throughput, TTFT (time to the first token, with mean, median and p99), ITL (inter-token latency, with mean, median and p99).
+
+
+```js
+
+const servingTest = [
+  "serving_llama8B_tp1_sharegpt_qps_1",
+  "serving_llama8B_tp1_sharegpt_qps_4",
+  "serving_llama8B_tp1_sharegpt_qps_16",
+  "serving_llama8B_tp1_sharegpt_qps_inf",
+  "serving_llama70B_tp4_sharegpt_qps_1",
+  "serving_llama70B_tp4_sharegpt_qps_4",
+  "serving_llama70B_tp4_sharegpt_qps_16",
+  "serving_llama70B_tp4_sharegpt_qps_inf",
+  "serving_mixtral8x7B_tp2_sharegpt_qps_1",
+  "serving_mixtral8x7B_tp2_sharegpt_qps_4",
+  "serving_mixtral8x7B_tp2_sharegpt_qps_16",
+  "serving_mixtral8x7B_tp2_sharegpt_qps_inf"
+];
+
+const servingTestSelected = view(
+  createSelector(servingTest, "serving_llama8B_tp1_sharegpt_qps_1")
+);
+
+const servingLatencyMetrics = [
+  "Mean TTFT (ms)",
+  "Median TTFT (ms)",
+  "P99 TTFT (ms)",
+  "Meam ITL (ms)",
+  "Median ITL (ms)",
+  "P99 ITL (ms)",
+];
+
+const servingLatencyMetricsSelected = view(
+  Inputs.checkbox(servingLatencyMetrics, {
+    label: "Latency metrics",
+    value: ["Mean TTFT (ms)"],
+  })
+);
+```
+
+
+```js
+let combinedData = [];
+for (let metric of servingLatencyMetricsSelected) {
+  let subsetData = ciData.filter((d) => d.metric === metric).filter((d) => d.test_name == servingTestSelected);
+  combinedData = combinedData.concat(subsetData);
+}
+display(makeCombinedPlot(combinedData, { title: "Latency (ms)" }));
+```
+
+
+```js
+
+const servingThroughputMetrics = [
+  "Tput (req/s)"
+];
+
+const servingThroughputMetricsSelected = view(
+  Inputs.checkbox(servingThroughputMetrics, {
+    label: "Throughput metrics",
+    value: ["Tput (req/s)"],
   })
 );
 ```
 
 ```js
-for (let metric of servingSelected) {
-  display(
-    makePlot(
-      ciData.filter((d) => d.metric === metric),
-      { title: metric }
-    )
-  );
+let combinedData = [];
+for (let metric of servingThroughputMetricsSelected) {
+  let subsetData = ciData.filter((d) => d.metric === metric).filter((d) => d.test_name == servingTestSelected);
+  combinedData = combinedData.concat(subsetData);
 }
+display(makeCombinedPlot(combinedData, { title: "Throughput (req/s)" }));
 ```
+
+
 
 ## Full Data
 
