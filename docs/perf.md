@@ -13,7 +13,7 @@ const commitShaToValues = commitData.reduce((acc, d) => {
   return acc;
 }, {});
 
-const ciData = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
+let ciDataFull = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
   (d) => {
     d["commit_message"] =
       commitShaToValues[d["commit"]]?.message.split("\n")[0];
@@ -22,10 +22,7 @@ const ciData = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
     return d;
   }
 ).sort((a, b) => a.build_datetime - b.build_datetime);
-```
 
-
-```js
 function createSelector(metricsSubset, defaultMetric) {
   return Inputs.radio(metricsSubset, { label: "Test name", value: defaultMetric });
 }
@@ -84,6 +81,25 @@ function makeSparkline(data) {
 }
 ```
 
+## Hardware
+Please select a hardware. All plots down below will only show results of the selected hardware.
+```js
+
+const hardware = [
+  "A100",
+];
+
+const hardwareSelected = view(
+  createSelector(hardware, "A100", "Hardware")
+)
+
+```
+
+```js
+let ciData = ciDataFull.filter((d) => d.GPU.includes(hardwareSelected));
+```
+
+
 ## Latency tests
 
 This test suite aims to test vLLM's end-to-end latency under a controlled setup.
@@ -133,7 +149,7 @@ const latencyMetrics = [
 
 const latencyMetricSelected = view(
   Inputs.checkbox(latencyMetrics, {
-    label: "Latency",
+    label: "Latency metrics",
     value: ["Mean latency (ms)"],
   })
 );
@@ -196,7 +212,7 @@ const throughputMetrics = [
 
 const throughputMetricSelected = view(
   Inputs.checkbox(throughputMetrics, {
-    label: "Metrics",
+    label: "Throughput metrics",
     value: ["Tput (req/s)"],
   })
 );

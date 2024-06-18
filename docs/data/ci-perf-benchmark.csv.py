@@ -16,7 +16,7 @@ def log(msg):
     print(msg, file=sys.stderr)
 
 
-def get_builds(org_slug, branch, token, days=30):
+def get_builds(org_slug, branch, token, days=2):
     url = f"https://api.buildkite.com/v2/organizations/{org_slug}/builds"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -173,7 +173,7 @@ async def main():
         
     df = pd.DataFrame.from_dict(values)
     df = df.melt(
-        id_vars = ["commit", "commit_url", "build_datetime", "test_name"],
+        id_vars = ["commit", "commit_url", "build_datetime", "test_name", "GPU"],
         var_name="metric",
         value_name="value"
     )
