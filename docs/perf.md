@@ -4,10 +4,6 @@ toc: false
 
 # CI Benchmark
 
-<!-- commit,commit_url,build_datetime,Average Latency,10% Percentile Latency,25% Percentile Latency,50% Percentile Latency,75% Percentile Latency,90% Percentile Latency,Throughput,Token Throughput,Successful Requests,Benchmark Duration,Total Input Tokens,Total Generated Tokens,Request Throughput,Input Token Throughput,Output Token Throughput,Mean TTFT,Median TTFT,P99 TTFT,Mean TPOT,Median TPOT,P99 TPOT -->
-
-<!-- commit,commit_url,build_datetime,metric,value -->
-
 ```js
 const commitData = await FileAttachment(
   "./data/vllm-commits-last-30-days.json"
@@ -29,25 +25,28 @@ const ciData = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
 ```
 
 
-
 ```js
-
 function createSelector(metricsSubset, defaultMetric) {
   return Inputs.radio(metricsSubset, { label: "Test name", value: defaultMetric });
 }
 
+const ROLLING_WINDOW = 4;
 
 function makeCombinedPlot(data, { title } = {}) {
+  let minVal = Math.min(...data.map((d) => d.value));
+  let maxVal = Math.max(...data.map((d) => d.value));
+  let yDomain = [minVal - 0.2 * (maxVal - minVal), maxVal + 0.2 * (maxVal - minVal)];
+
   return Plot.plot({
     title: title,
-    y: { grid: true },
+    y: { grid: true, domain: yDomain },
     width: 1200,
     marks: [
       Plot.dot(data, {
         x: "build_datetime",
         y: "value",
         z: "metric",
-        fill: "blue",
+        fill: "orange",
         fillOpacity: 0.5,
       }),
       Plot.tip(
@@ -60,7 +59,7 @@ function makeCombinedPlot(data, { title } = {}) {
       ),
       Plot.lineY(
         data,
-        Plot.windowY(12, {
+        Plot.windowY(ROLLING_WINDOW, {
           x: "build_datetime",
           y: "value",
           z: "metric",
@@ -72,19 +71,44 @@ function makeCombinedPlot(data, { title } = {}) {
   });
 }
 
-
+function makeSparkline(data) {
+   return Plot.lineY(
+         data,
+         Plot.windowY(ROLLING_WINDOW, {
+          x: "build_datetime",
+          y: "value",
+          z: "metric",
+          stroke: "DarkTurquoise",
+        })
+    ).plot({axis: null, width: 80, height: 12});
+}
 ```
 
 ## Latency tests
 
-
-This test suite aims to test vllm's end-to-end latency under a controlled setup.
+This test suite aims to test vLLM's end-to-end latency under a controlled setup.
 
 - Input length: 32 tokens.
 - Output length: 128 tokens.
 - Batch size: fixed (8).
-- Models: llama-3 8B, llama-3 70B, mixtral 8x7B.
 - Evaluation metrics: end-to-end latency (mean, median, p99).
+
+```js
+const llama3_8b = ciData.filter((d) => d.test_name == "latency_llama8B_tp1" && d.metric == "Mean latency (ms)")
+const llama3_8b_latest = llama3_8b[llama3_8b.length - 1].value.toFixed(2);
+
+const llama3_70b = ciData.filter((d) => d.test_name == "latency_llama70B_tp4" && d.metric == "Mean latency (ms)")
+const llama3_70b_latest = llama3_70b[llama3_70b.length - 1].value.toFixed(2);
+
+const mixtral_8x7b = ciData.filter((d) => d.test_name == "latency_mixtral8x7B_tp2" && d.metric == "Mean latency (ms)")
+const mixtral_8x7b_latest = mixtral_8x7b[mixtral_8x7b.length - 1].value.toFixed(2);
+```
+
+Llama-3 8B on A100 ${makeSparkline(llama3_8b)}: ${llama3_8b_latest}ms.
+
+Llama-3 70B on 4xA100 ${makeSparkline(llama3_70b)}: ${llama3_70b_latest}ms.
+
+Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b)}: ${mixtral_8x7b_latest}ms.
 
 
 
@@ -128,14 +152,29 @@ display(makeCombinedPlot(combinedData, { title: "Combined Latency Metrics" }));
 ## Throughput tests
 
 
-This test suite aims to test vllm's throughput.
+This test suite aims to test vLLM's throughput.
 
 - Input length: randomly sample 200 prompts from ShareGPT dataset (with fixed random seed).
 - Output length: the corresponding output length of these 200 prompts.
 - Batch size: dynamically determined by vllm to achieve maximum throughput.
-- Models: llama-3 8B, llama-3 70B, mixtral 8x7B.
 - Evaluation metrics: throughput.
 
+```js
+const llama3_8b_tp1 = ciData.filter((d) => d.test_name == "throughput_llama8B_tp1" && d.metric == "Tput (req/s)")
+const llama3_8b_tp1_latest = llama3_8b_tp1[llama3_8b_tp1.length - 1].value.toFixed(2);
+
+const llama3_70b_tp4 = ciData.filter((d) => d.test_name == "throughput_llama70B_tp4" && d.metric == "Tput (req/s)")
+const llama3_70b_tp4_latest = llama3_70b_tp4[llama3_70b_tp4.length - 1].value.toFixed(2);
+
+const mixtral_8x7b_tp2 = ciData.filter((d) => d.test_name == "throughput_mixtral8x7B_tp2" && d.metric == "Tput (req/s)")
+const mixtral_8x7b_tp2_latest = mixtral_8x7b_tp2[mixtral_8x7b_tp2.length - 1].value.toFixed(2);
+```
+
+Llama-3 8B on A100 ${makeSparkline(llama3_8b_tp1)}: ${llama3_8b_tp1_latest} req/s.
+
+Llama-3 70B on 4xA100 ${makeSparkline(llama3_70b_tp4)}: ${llama3_70b_tp4_latest} req/s.
+
+Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b_tp2)}: ${mixtral_8x7b_tp2_latest} req/s.
 
 
 ```js
@@ -188,7 +227,6 @@ This test suite aims to test vllm's real serving metrics.
 
 
 ```js
-
 const servingTest = [
   "serving_llama8B_tp1_sharegpt_qps_1",
   "serving_llama8B_tp1_sharegpt_qps_4",
@@ -203,6 +241,54 @@ const servingTest = [
   "serving_mixtral8x7B_tp2_sharegpt_qps_16",
   "serving_mixtral8x7B_tp2_sharegpt_qps_inf"
 ];
+
+const tableData = [];
+
+for (let model of ["llama8B_tp1", "llama70B_tp4", "mixtral8x7B_tp2"]) {
+  for (let qps of ["1", "4", "16", "inf"]) {
+    const test = `serving_${model}_sharegpt_qps_${qps}`;
+
+    const dataTTFT = ciData.filter((d) => d.test_name == test && d.metric == "Mean TTFT (ms)");
+    const latestTTFT = dataTTFT[dataTTFT.length - 1].value.toFixed(2);
+
+    const dataITL = ciData.filter((d) => d.test_name == test && d.metric == "Mean ITL (ms)");
+    const latestITL = dataITL[dataITL.length - 1].value.toFixed(2);
+    tableData.push({ model, qps,
+      ttftLatest: latestTTFT,
+      ttftSparkline: makeSparkline(dataTTFT),
+      itlLatest: latestITL,
+      itlSparkline: makeSparkline(dataITL),
+    });
+  }
+}
+
+display(
+  Inputs.table(tableData,
+    {
+      columns: ["model", "qps", "ttftLatest", "ttftSparkline", "itlLatest", "itlSparkline"],
+      header: {
+        model: "Model",
+        qps: "QPS",
+        ttftLatest: "Mean TTFT (ms)",
+        ttftSparkline: "TTFT",
+        itlLatest: "Mean ITL (ms)",
+        itlSparkline: "ITL",
+      },
+      format: {
+        ttftSparkline: (d) => htl.html`${d}`,
+        itlSparkline: (d) => htl.html`${d}`,
+        }
+    }));
+
+// for (let test of servingTest) {
+//   for (let metric of ["Mean ITL (ms)", "Mean ITL (ms)"]) {
+//     const data = ciData.filter((d) => d.test_name == test && d.metric == metric);
+//     const latest = data[data.length - 1].value.toFixed(2);
+//     const chunks = test.split("_");
+//     const testName = [chunks[1], chunks[2], chunks[4], chunks[5]].join(" ");
+//     display(html`<p>${testName} : ${latest}ms</p>`);
+//   }
+// }
 
 const servingTestSelected = view(
   createSelector(servingTest, "serving_llama8B_tp1_sharegpt_qps_1")
