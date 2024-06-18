@@ -36,41 +36,6 @@ function createSelector(metricsSubset, defaultMetric) {
   return Inputs.radio(metricsSubset, { label: "Test name", value: defaultMetric });
 }
 
-// function makePlot(subsetData, { title } = {}) {
-//   return Plot.plot({
-//     title: title,
-//     y: { grid: true },
-//     width: 1200,
-//     marks: [
-//       Plot.dot(subsetData, {
-//         x: "build_datetime",
-//         y: "value",
-//         z: "metric",
-//         fill: "orange",
-//         fillOpacity: 0.5,
-//       }),
-//       Plot.tip(
-//         subsetData,
-//         Plot.pointer({
-//           x: "build_datetime",
-//           y: "value",
-//           title: (d) => [d.commit_message, d.metric, d.value].join("\n\n"),
-//         })
-//       ),
-//       Plot.lineY(
-//         subsetData,
-//         Plot.windowY(12, {
-//           x: "build_datetime",
-//           y: "value",
-//           z: "metric",
-//           stroke: "DarkTurquoise",
-//         })
-//       ),
-//     ],
-//     legend: { title: "Metric" },
-//   });
-// }
-
 
 function makeCombinedPlot(data, { title } = {}) {
   return Plot.plot({

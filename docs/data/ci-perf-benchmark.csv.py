@@ -83,55 +83,6 @@ async def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number, 
                         return filename, commit, commit_url, build_datetime
         return None
 
-        
-
-    
-
-# def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number, token, filename, commit, commit_url, build_datetime):
-
-    
-#     # get artifact list:
-#     # curl -H "Authorization: Bearer $TOKEN" \
-#     # -X GET "https://api.buildkite.com/v2/organizations/{org.slug}/pipelines/{pipeline.slug}/builds/{build.number}/artifacts"
-#     artifacts_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/artifacts"
-#     headers = {
-#         "Authorization": f"Bearer {token}",
-#         "Content-Type": "application/json"
-#     }
-#     response = requests.get(artifacts_url, headers=headers)
-#     if response.status_code == 200:
-#         artifacts = response.json()
-#         for artifact in artifacts:
-#             if artifact['filename'] == "benchmark_results.md":
-#                 # get download URL:
-#                 # curl -H "Authorization: Bearer $TOKEN" \
-#                 # -X GET "https://api.buildkite.com/v2/organizations/{org.slug}/pipelines/{pipeline.slug}/builds/{build.number}/jobs/{job.id}/artifacts/{id}/download"
-#                 download_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/jobs/{artifact['job_id']}/artifacts/{artifact['id']}/download"
-#                 download_response = requests.get(download_url, headers=headers)
-#                 if download_response.status_code == 200:
-#                     # start the downloading
-#                     benchmark_results_url = download_response.url
-#                     benchmark_results_response = requests.get(benchmark_results_url, stream=True)
-#                     with open(filename, "wb") as f:
-#                         for chunk in benchmark_results_response.iter_content(chunk_size=8192):
-#                             f.write(chunk)
-#                     log(f"Downloaded benchmarking results for commit {commit}")
-#                     return filename, commit, commit_url, build_datetime
-                
-#     raise FileNotFoundError("Benchmarking results not found in the build artifacts")
-
-
-# Function to process log entries using defined patterns
-def extract_data_from_logs(logs):
-    pattern = 'The json string for all benchmarking tables:\n```json\n(.*?)\n```'
-    match = re.search(pattern, logs, re.DOTALL)
-    
-    if match:
-        benchmarking_results = match.group(1)
-        return json.loads(benchmarking_results)
-    else:
-        return {}
-
 
 API_TOKEN = os.environ["BUILDKIT_API_TOKEN"]
 ORG_SLUG = "vllm"
