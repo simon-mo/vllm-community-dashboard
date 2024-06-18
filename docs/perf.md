@@ -212,7 +212,7 @@ const servingLatencyMetrics = [
   "Mean TTFT (ms)",
   "Median TTFT (ms)",
   "P99 TTFT (ms)",
-  "Meam ITL (ms)",
+  "Mean ITL (ms)",
   "Median ITL (ms)",
   "P99 ITL (ms)",
 ];
