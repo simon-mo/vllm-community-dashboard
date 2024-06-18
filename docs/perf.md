@@ -4,36 +4,11 @@ toc: false
 
 # CI Benchmark
 
-<!-- commit,commit_url,build_datetime,Average Latency,10% Percentile Latency,25% Percentile Latency,50% Percentile Latency,75% Percentile Latency,90% Percentile Latency,Throughput,Token Throughput,Successful Requests,Benchmark Duration,Total Input Tokens,Total Generated Tokens,Request Throughput,Input Token Throughput,Output Token Throughput,Mean TTFT,Median TTFT,P99 TTFT,Mean TPOT,Median TPOT,P99 TPOT -->
-
-<!-- commit,commit_url,build_datetime,metric,value -->
-
-```js
-const commitData = await FileAttachment(
-  "./data/vllm-commits-last-30-days.json"
-).json();
-const commitShaToValues = commitData.reduce((acc, d) => {
-  acc[d.sha] = d;
-  return acc;
-}, {});
-
-const ciData = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
-  (d) => {
-    d["commit_message"] =
-      commitShaToValues[d["commit"]]?.message.split("\n")[0];
-    d["build_datetime"] = new Date(d["build_datetime"]);
-    d["value"] = parseFloat(d["value"]);
-    return d;
-  }
-).sort((a, b) => a.build_datetime - b.build_datetime);
-```
-
-
 
 ```js
 
-function createSelector(metricsSubset, defaultMetric) {
-  return Inputs.radio(metricsSubset, { label: "Test name", value: defaultMetric });
+function createSelector(metricsSubset, defaultMetric, labelName = "Test name") {
+  return Inputs.radio(metricsSubset, { label: labelName, value: defaultMetric });
 }
 
 
@@ -72,8 +47,54 @@ function makeCombinedPlot(data, { title } = {}) {
   });
 }
 
+```
+
+
+
+```js
+const commitData = await FileAttachment(
+  "./data/vllm-commits-last-30-days.json"
+).json();
+const commitShaToValues = commitData.reduce((acc, d) => {
+  acc[d.sha] = d;
+  return acc;
+}, {});
+
+const ciDataFull = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).map(
+  (d) => {
+    d["commit_message"] =
+      commitShaToValues[d["commit"]]?.message.split("\n")[0];
+    d["build_datetime"] = new Date(d["build_datetime"]);
+    d["value"] = parseFloat(d["value"]);
+    return d;
+  }
+).sort((a, b) => a.build_datetime - b.build_datetime);
+```
+
+
+## Hardware
+
+Please select a hardware. All plots down below will only show results of the selected hardware.
+
+```js
+
+const hardware = [
+  "A100",
+];
+
+const hardwareSelected = view(
+  createSelector(hardware, "A100", "Hardware")
+)
 
 ```
+
+
+```js
+const ciData = ciDataFull.filter((d) => d.GPU.includes(hardwareSelected));
+```
+
+
+
 
 ## Latency tests
 
@@ -109,7 +130,7 @@ const latencyMetrics = [
 
 const latencyMetricSelected = view(
   Inputs.checkbox(latencyMetrics, {
-    label: "Latency",
+    label: "Latency metrics",
     value: ["Mean latency (ms)"],
   })
 );
@@ -157,7 +178,7 @@ const throughputMetrics = [
 
 const throughputMetricSelected = view(
   Inputs.checkbox(throughputMetrics, {
-    label: "Metrics",
+    label: "Throughput metrics",
     value: ["Tput (req/s)"],
   })
 );
