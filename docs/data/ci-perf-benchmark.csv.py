@@ -16,7 +16,7 @@ def log(msg):
     print(msg, file=sys.stderr)
 
 
-def get_builds(org_slug, branch, token, days=2):
+def get_builds(org_slug, branch, token, days=30):
     url = f"https://api.buildkite.com/v2/organizations/{org_slug}/builds"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -56,9 +56,9 @@ def get_builds(org_slug, branch, token, days=2):
     return all_builds
 
 
-
-
-async def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number, token, filename, commit, commit_url, build_datetime):
+async def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number,
+                                         token, filename, commit, commit_url,
+                                         build_datetime):
     artifacts_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/artifacts"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -72,14 +72,18 @@ async def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number, 
             for artifact in artifacts:
                 if artifact['filename'] == "benchmark_results.json":
                     download_url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds/{build_number}/jobs/{artifact['job_id']}/artifacts/{artifact['id']}/download"
-                    download_response = await client.get(download_url, headers=headers)
+                    download_response = await client.get(download_url,
+                                                         headers=headers)
                     if download_response.status_code in [200, 302]:
                         benchmark_results_url = download_response.json()['url']
-                        async with client.stream("GET", benchmark_results_url) as stream:
+                        async with client.stream(
+                                "GET", benchmark_results_url) as stream:
                             async with aiofiles.open(filename, "wb") as f:
-                                async for chunk in stream.aiter_bytes(chunk_size=32768):
+                                async for chunk in stream.aiter_bytes(
+                                        chunk_size=32768):
                                     await f.write(chunk)
-                        log(f"Downloaded benchmarking results for commit {commit}")
+                        log(f"Downloaded benchmarking results for commit {commit}"
+                            )
                         return filename, commit, commit_url, build_datetime
         return None
 
@@ -89,6 +93,7 @@ ORG_SLUG = "vllm"
 BRANCH = "main"
 cache_dir = "/tmp/buildkite_logs"
 os.makedirs(cache_dir, exist_ok=True)
+
 
 async def download_and_cache(raw_log_url, filepath, commit, commit_url,
                              build_datetime):
@@ -121,19 +126,19 @@ async def main():
             df['commit_url'] = commit_url
             df['build_datetime'] = build_datetime
             df["test_name"] = df["Test name"]
-                
+
             values.extend(df.to_dict(orient='records'))
 
     download_tasks = []
     for build in builds:
-        
+
         # skip running builds
         if build['state'] == "running":
             continue
-        
+
         commit = build['commit']
         commit_url = f"{build['pipeline']['repository'].replace('.git', '')}/commit/{build['commit']}"
-        
+
         # find if the build contains the benchmarking data
         contains_benchmark = False
         for job in build.get('jobs', []):
@@ -142,7 +147,7 @@ async def main():
                 break
         if not contains_benchmark:
             continue
-        
+
         build_datetime = build['created_at']
         filename = f"{build_datetime}_{commit}.log"
         filepath = os.path.join(cache_dir, filename)
@@ -151,32 +156,27 @@ async def main():
                 )
             insert_row(filepath, commit, commit_url, build_datetime)
         else:
-            download_tasks.append(asyncio.create_task(
-                get_benchmark_results_and_save(ORG_SLUG,
-                                            build['pipeline']['slug'],
-                                            build['number'],
-                                            API_TOKEN,
-                                            filepath,
-                                            commit,
-                                            commit_url,
-                                            build_datetime)
-            ))
-        
-        
-        
+            download_tasks.append(
+                asyncio.create_task(
+                    get_benchmark_results_and_save(ORG_SLUG,
+                                                   build['pipeline']['slug'],
+                                                   build['number'], API_TOKEN,
+                                                   filepath, commit,
+                                                   commit_url,
+                                                   build_datetime)))
+
     # for task in download_tasks:
     for task in asyncio.as_completed(download_tasks):
         result = await task
         if result is None:
             continue
         insert_row(*result)
-        
+
     df = pd.DataFrame.from_dict(values)
     df = df.melt(
-        id_vars = ["commit", "commit_url", "build_datetime", "test_name", "GPU"],
+        id_vars=["commit", "commit_url", "build_datetime", "test_name", "GPU"],
         var_name="metric",
-        value_name="value"
-    )
+        value_name="value")
     buf = io.StringIO()
     df.to_csv(buf, index=False)
     buf.seek(0)
