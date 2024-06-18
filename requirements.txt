@@ -2,3 +2,4 @@ pandas
 requests
 httpx
 databricks-sql-connector
+aiofiles
