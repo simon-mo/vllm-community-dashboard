@@ -31,10 +31,10 @@ print("Filtering by models:", models, file=sys.stderr)
 cursor = connection.cursor()
 
 cursor.execute(f"""
-WITH last_90_days AS
+WITH last_60_days AS
 (
   SELECT date_sub(current_date(), d) AS day_stamp
-  FROM (SELECT posexplode(sequence(1, 90)) AS (pos, d))
+  FROM (SELECT posexplode(sequence(1, 60)) AS (pos, d))
 ),
 
 daily_usage AS
@@ -52,10 +52,10 @@ WHERE model_architecture IN {tuple(models)}
 day_exploded AS
 (
 SELECT *
-FROM last_90_days
+FROM last_60_days
   JOIN daily_usage
-WHERE last_90_days.day_stamp <= daily_usage.ending_time
-  AND  last_90_days.day_stamp >= daily_usage.starting_time
+WHERE last_60_days.day_stamp <= daily_usage.ending_time
+  AND  last_60_days.day_stamp >= daily_usage.starting_time
 ORDER BY day_stamp
 )
 

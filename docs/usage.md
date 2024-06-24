@@ -23,8 +23,8 @@ WITH filtered_usage AS (
 ranked_usage AS (
     SELECT
         gpu_type,
-        SUM(total_gpu_hours) / 90 AS total_hours,
-        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 90 DESC) AS rank
+        SUM(total_gpu_hours) / 60 AS total_hours,
+        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 60 DESC) AS rank
     FROM
         filtered_usage
     GROUP BY
@@ -80,8 +80,8 @@ WITH filtered_usage AS (
 ranked_usage AS (
     SELECT
         model_architecture_tp,
-        SUM(total_gpu_hours) / 90 AS total_hours,
-        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 90 DESC) AS rank
+        SUM(total_gpu_hours) / 60 AS total_hours,
+        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 60 DESC) AS rank
     FROM
         filtered_usage
     GROUP BY
