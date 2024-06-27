@@ -4,6 +4,28 @@ toc: false
 
 # CI Benchmark
 
+This is the performance benchmark for [vllm github repo](https://github.com/vllm-project/vllm).
+
+# Hardware
+Please select a hardware. All plots down below will only show results of the selected hardware (more hardware is coming).
+```js
+
+const hardware = [
+  "A100",
+];
+
+const hardwareSelected = view(
+  createSelector(hardware, "A100", "Hardware")
+)
+```
+
+
+# Smoothing
+```js
+const ROLLING_WINDOW = view(html`<input type=range step=1 min=1 max=20 value=5>`);
+```
+Taking the average of last ${ROLLING_WINDOW} commits when drawing the curve. (default: 5)
+
 ```js
 const commitData = await FileAttachment(
   "./data/vllm-commits-last-30-days.json"
@@ -26,8 +48,6 @@ let ciDataFull = (await FileAttachment("./data/ci-perf-benchmark.csv").csv()).ma
 function createSelector(metricsSubset, defaultMetric) {
   return Inputs.radio(metricsSubset, { label: "Test name", value: defaultMetric });
 }
-
-const ROLLING_WINDOW = 4;
 
 function makeCombinedPlot(data, { title } = {}) {
   let minVal = Math.min(...data.map((d) => d.value));
@@ -81,26 +101,121 @@ function makeSparkline(data) {
 }
 ```
 
-## Hardware
-Please select a hardware. All plots down below will only show results of the selected hardware.
+
 ```js
+// Utility functions for calculating moving average and formatting
 
-const hardware = [
-  "A100",
-];
+function calculateAverageValue(data, daysBefore) {
+  const latestDatetime = data[data.length - 1].build_datetime;
 
-const hardwareSelected = view(
-  createSelector(hardware, "A100", "Hardware")
-)
+  const targetDate = new Date(latestDatetime);
+  targetDate.setDate(targetDate.getDate() - daysBefore);
+
+  const filteredData = data.filter(
+    (d) => d.build_datetime.toDateString() === targetDate.toDateString()
+  );
+
+  const latestCommits = filteredData
+    .sort((a, b) => b.build_datetime - a.build_datetime)
+    .slice(0, ROLLING_WINDOW);
+
+  const averageValue = latestCommits.reduce((sum, d) => sum + d.value, 0) / latestCommits.length;
+
+  return averageValue;
+}
+
+
+function formatPercentage(value) {
+  let sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function interpolateColorLatency(value) {
+  const green = { r: 0, g: 255, b: 0 };
+  const red = { r: 255, g: 0, b: 0 };
+  const ratio = (value + 5) / 10; // Normalize value to range [0, 1]
+
+  const r = Math.round(green.r * (1 - ratio) + red.r * ratio);
+  const g = Math.round(green.g * (1 - ratio) + red.g * ratio);
+  const b = Math.round(green.b * (1 - ratio) + red.b * ratio);
+
+  return `rgb(${r},${g},${b})`;
+}
+
+function interpolateColorThroughput(value) {
+  const green = { r: 0, g: 255, b: 0 };
+  const red = { r: 255, g: 0, b: 0 };
+  const ratio = 1 - (value + 5) / 10; // Normalize value to range [0, 1]
+
+  const r = Math.round(green.r * (1 - ratio) + red.r * ratio);
+  const g = Math.round(green.g * (1 - ratio) + red.g * ratio);
+  const b = Math.round(green.b * (1 - ratio) + red.b * ratio);
+
+  return `rgb(${r},${g},${b})`;
+}
 
 ```
+
 
 ```js
 let ciData = ciDataFull.filter((d) => d.GPU.includes(hardwareSelected));
 ```
 
+-------------
 
-## Latency tests
+
+# Latency tests
+
+
+### TL;DR
+
+
+```js
+
+const latencyTableData = [];
+
+for (let test of ["latency_llama8B_tp1", "latency_llama70B_tp4", "latency_mixtral8x7B_tp2"]) {
+
+
+  let data = ciData.filter((d) => d.test_name == test && d.metric == "Mean latency (ms)");
+
+  let cur = calculateAverageValue(data, 0);
+  let oneday = calculateAverageValue(data, 1);
+  let oneweek = calculateAverageValue(data, 7);
+
+  latencyTableData.push({test,
+    "current": cur,
+    "oneday": 100 * (cur - oneday) / oneday,
+    "oneweek": 100 * (cur - oneweek) / oneweek,
+    "sparkline": makeSparkline(data)
+  });
+}
+
+
+
+display(
+  Inputs.table(latencyTableData,
+    {
+      columns: ["test", "current", "oneday", "oneweek", "sparkline"],
+      header: {
+        test: "Test name",
+        current: "Current mean latency (ms)",
+        oneday: "Compared to one day ago",
+        oneweek: "Compared to one week ago",
+        "sparkline": "Spark line"
+      },
+      format: {
+        current: (d) => d.toFixed(2),
+        oneday: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        oneweek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        sparkline: (d) => htl.html`${d}`,
+        }
+    }));
+```
+
+
+
+### Description
 
 This test suite aims to test vLLM's end-to-end latency under a controlled setup.
 
@@ -108,6 +223,11 @@ This test suite aims to test vLLM's end-to-end latency under a controlled setup.
 - Output length: 128 tokens.
 - Batch size: fixed (8).
 - Evaluation metrics: end-to-end latency (mean, median, p99).
+
+
+
+<!-- 
+### Latency sparklines
 
 ```js
 const llama3_8b = ciData.filter((d) => d.test_name == "latency_llama8B_tp1" && d.metric == "Mean latency (ms)")
@@ -120,13 +240,16 @@ const mixtral_8x7b = ciData.filter((d) => d.test_name == "latency_mixtral8x7B_tp
 const mixtral_8x7b_latest = mixtral_8x7b[mixtral_8x7b.length - 1].value.toFixed(2);
 ```
 
+
+
 Llama-3 8B on A100 ${makeSparkline(llama3_8b)}: ${llama3_8b_latest}ms.
 
 Llama-3 70B on 4xA100 ${makeSparkline(llama3_70b)}: ${llama3_70b_latest}ms.
 
-Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b)}: ${mixtral_8x7b_latest}ms.
+Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b)}: ${mixtral_8x7b_latest}ms. -->
 
 
+### Plot
 
 ```js
 
@@ -162,10 +285,68 @@ for (let metric of latencyMetricSelected) {
   let subsetData = ciData.filter((d) => d.metric === metric).filter((d) => d.test_name == latencyTestSelected);
   combinedData = combinedData.concat(subsetData);
 }
-display(makeCombinedPlot(combinedData, { title: "Combined Latency Metrics" }));
+display(makeCombinedPlot(combinedData, { title: "Latency (ms)" }));
 ```
 
-## Throughput tests
+
+
+--------
+
+
+
+
+
+
+# Throughput tests
+
+
+### TL;DR
+
+
+```js
+
+const latencyTableData = [];
+
+for (let test of ["throughput_llama8B_tp1", "throughput_llama70B_tp4", "throughput_mixtral8x7B_tp2"]) {
+
+
+  let data = ciData.filter((d) => d.test_name == test && d.metric == "Tput (req/s)");
+
+  let cur = calculateAverageValue(data, 0);
+  let oneday = calculateAverageValue(data, 1);
+  let oneweek = calculateAverageValue(data, 7);
+
+  latencyTableData.push({test,
+    "current": cur,
+    "oneday": 100 * (cur - oneday) / oneday,
+    "oneweek": 100 * (cur - oneweek) / oneweek,
+    "sparkline": makeSparkline(data)
+  });
+}
+
+
+
+display(
+  Inputs.table(latencyTableData,
+    {
+      columns: ["test", "current", "oneday", "oneweek", "sparkline"],
+      header: {
+        test: "Test name",
+        current: "Current throughput (req/s)",
+        oneday: "Compared to one day ago",
+        oneweek: "Compared to one week ago",
+        "sparkline": "Spark line"
+      },
+      format: {
+        current: (d) => d.toFixed(2),
+        oneday: (d) => htl.html`<span style="color:${interpolateColorThroughput(d)}"><b>${formatPercentage(d)}</b></span>`,
+        oneweek: (d) => htl.html`<span style="color:${interpolateColorThroughput(d)}"><b>${formatPercentage(d)}</b></span>`,
+        sparkline: (d) => htl.html`${d}`,
+        }
+    }));
+```
+
+### Description
 
 
 This test suite aims to test vLLM's throughput.
@@ -175,7 +356,7 @@ This test suite aims to test vLLM's throughput.
 - Batch size: dynamically determined by vllm to achieve maximum throughput.
 - Evaluation metrics: throughput.
 
-```js
+<!-- ```js
 const llama3_8b_tp1 = ciData.filter((d) => d.test_name == "throughput_llama8B_tp1" && d.metric == "Tput (req/s)")
 const llama3_8b_tp1_latest = llama3_8b_tp1[llama3_8b_tp1.length - 1].value.toFixed(2);
 
@@ -190,7 +371,9 @@ Llama-3 8B on A100 ${makeSparkline(llama3_8b_tp1)}: ${llama3_8b_tp1_latest} req/
 
 Llama-3 70B on 4xA100 ${makeSparkline(llama3_70b_tp4)}: ${llama3_70b_tp4_latest} req/s.
 
-Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b_tp2)}: ${mixtral_8x7b_tp2_latest} req/s.
+Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b_tp2)}: ${mixtral_8x7b_tp2_latest} req/s. -->
+
+### Plot
 
 
 ```js
@@ -229,17 +412,14 @@ display(makeCombinedPlot(combinedData, { title: "Throughput" }));
 ```
 
 
-## Serving Benchmark (on ShareGPT)
+-------
 
 
-This test suite aims to test vllm's real serving metrics.
+# Serving Benchmark (on ShareGPT)
 
-- Input length: randomly sample 200 prompts from ShareGPT dataset (with fixed random seed).
-- Output length: the corresponding output length of these 200 prompts.
-- Batch size: dynamically determined by vllm and the arrival pattern of the requests.
-- **Average QPS (query per second)**: 1, 4, 16 and inf. QPS = inf means all requests come at once. For other QPS values, the arrival time of each query is determined using a random Poisson process (with fixed random seed).
-- Models: llama-3 8B, llama-3 70B, mixtral 8x7B.
-- Evaluation metrics: throughput, TTFT (time to the first token, with mean, median and p99), ITL (inter-token latency, with mean, median and p99).
+
+### TL;DR
+
 
 
 ```js
@@ -261,41 +441,76 @@ const servingTest = [
 const tableData = [];
 
 for (let model of ["llama8B_tp1", "llama70B_tp4", "mixtral8x7B_tp2"]) {
-  for (let qps of ["1", "4", "16", "inf"]) {
+  for (let qps of ["1", "4", "16"]) {
     const test = `serving_${model}_sharegpt_qps_${qps}`;
 
     const dataTTFT = ciData.filter((d) => d.test_name == test && d.metric == "Mean TTFT (ms)");
-    const latestTTFT = dataTTFT[dataTTFT.length - 1].value.toFixed(2);
+    const latestTTFT = calculateAverageValue(dataTTFT, 0);
+    const oneDayTTFT = calculateAverageValue(dataTTFT, 1);
+    const oneWeekTTFT = calculateAverageValue(dataTTFT, 7);
 
     const dataITL = ciData.filter((d) => d.test_name == test && d.metric == "Mean ITL (ms)");
     const latestITL = dataITL[dataITL.length - 1].value.toFixed(2);
+    const oneDayITL = calculateAverageValue(dataITL, 1);
+    const oneWeekITL = calculateAverageValue(dataITL, 7);
+    
     tableData.push({ model, qps,
       ttftLatest: latestTTFT,
+      ttftOneDay: (latestTTFT - oneDayTTFT) / oneDayTTFT,
+      ttftOneWeek: (latestTTFT - oneWeekTTFT) / oneWeekTTFT,
       ttftSparkline: makeSparkline(dataTTFT),
       itlLatest: latestITL,
+      itlOneDay: (latestITL - oneDayITL) / oneDayITL,
+      itlOneWeek: (latestITL - oneWeekITL) / oneWeekITL,
       itlSparkline: makeSparkline(dataITL),
     });
+
   }
 }
 
 display(
   Inputs.table(tableData,
     {
-      columns: ["model", "qps", "ttftLatest", "ttftSparkline", "itlLatest", "itlSparkline"],
+      columns: ["model", "qps", "ttftLatest", "ttftOneDay", "ttftOneWeek", "ttftSparkline", "itlLatest", "itlOneDay", "itlOneWeek", "itlSparkline"],
       header: {
         model: "Model",
         qps: "QPS",
         ttftLatest: "Mean TTFT (ms)",
-        ttftSparkline: "TTFT",
+        ttftOneDay: "Comp. to one day ago",
+        ttftOneWeek: "Comp. to one week ago",
         itlLatest: "Mean ITL (ms)",
+        itlOneDay: "Comp. to one day ago",
+        itlOneWeek: "Comp. to one week ago",
+        ttftSparkline: "TTFT",
         itlSparkline: "ITL",
       },
       format: {
+        ttftOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        ttftOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        itlOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        itlOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
         ttftSparkline: (d) => htl.html`${d}`,
         itlSparkline: (d) => htl.html`${d}`,
         }
     }));
+```
 
+### Description
+
+This test suite aims to test vllm's real serving metrics.
+
+- Input length: randomly sample 200 prompts from ShareGPT dataset (with fixed random seed).
+- Output length: the corresponding output length of these 200 prompts.
+- Batch size: dynamically determined by vllm and the arrival pattern of the requests.
+- Average QPS (query per second): 1, 4, 16 and inf. QPS = inf means all requests come at once. For other QPS values, the arrival time of each query is determined using a random Poisson process (with fixed random seed).
+- Models: llama-3 8B, llama-3 70B, mixtral 8x7B.
+- Evaluation metrics: throughput, TTFT (time to the first token, with mean, median and p99), ITL (inter-token latency, with mean, median and p99).
+
+
+### Latency plot
+
+
+```js
 // for (let test of servingTest) {
 //   for (let metric of ["Mean ITL (ms)", "Mean ITL (ms)"]) {
 //     const data = ciData.filter((d) => d.test_name == test && d.metric == metric);
@@ -336,6 +551,10 @@ for (let metric of servingLatencyMetricsSelected) {
 }
 display(makeCombinedPlot(combinedData, { title: "Latency (ms)" }));
 ```
+
+
+
+### Throughput plot
 
 
 ```js
