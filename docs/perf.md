@@ -22,9 +22,9 @@ const hardwareSelected = view(
 
 # Smoothing
 ```js
-const ROLLING_WINDOW = view(html`<input type=range step=1 min=1 max=20 value=5>`);
+const ROLLING_WINDOW = view(html`<input type=range step=1 min=1 max=20 value=10>`);
 ```
-Taking the average of last ${ROLLING_WINDOW} commits when drawing the curve. (default: 5)
+Taking the average of last ${ROLLING_WINDOW} commits when drawing the curve. (default: 10)
 
 ```js
 const commitData = await FileAttachment(
@@ -133,7 +133,8 @@ function formatPercentage(value) {
 function interpolateColorLatency(value) {
   const green = { r: 0, g: 255, b: 0 };
   const red = { r: 255, g: 0, b: 0 };
-  const ratio = (value + 5) / 10; // Normalize value to range [0, 1]
+  const capped_value =  Math.max(-2.5, Math.min(2.5, value));;
+  const ratio = (capped_value + 2.5) / 5; // Normalize value to range [0, 1]
 
   const r = Math.round(green.r * (1 - ratio) + red.r * ratio);
   const g = Math.round(green.g * (1 - ratio) + red.g * ratio);
@@ -145,7 +146,8 @@ function interpolateColorLatency(value) {
 function interpolateColorThroughput(value) {
   const green = { r: 0, g: 255, b: 0 };
   const red = { r: 255, g: 0, b: 0 };
-  const ratio = 1 - (value + 5) / 10; // Normalize value to range [0, 1]
+  const capped_value =  Math.max(-2.5, Math.min(2.5, value));;
+  const ratio = 1 - (capped_value + 2.5) / 5; // Normalize value to range [0, 1]
 
   const r = Math.round(green.r * (1 - ratio) + red.r * ratio);
   const g = Math.round(green.g * (1 - ratio) + red.g * ratio);
@@ -164,10 +166,16 @@ let ciData = ciDataFull.filter((d) => d.GPU.includes(hardwareSelected));
 -------------
 
 
-# Latency tests
+# TL; DR
 
 
-### TL;DR
+-------
+
+
+- Latency of vllm.
+  - Metric: mean end-to-end latency (ms)
+  - Input length: 32 tokens.
+  - Output length: 128 tokens.
 
 
 ```js
@@ -199,9 +207,9 @@ display(
       columns: ["test", "current", "oneday", "oneweek", "sparkline"],
       header: {
         test: "Test name",
-        current: "Current mean latency (ms)",
-        oneday: "Compared to one day ago",
-        oneweek: "Compared to one week ago",
+        current: "Latency",
+        oneday: "vs 1 day ago",
+        oneweek: "vs 1 week ago",
         "sparkline": "Spark line"
       },
       format: {
@@ -209,9 +217,143 @@ display(
         oneday: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
         oneweek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
         sparkline: (d) => htl.html`${d}`,
-        }
+        },
+      layout: "fixed"
     }));
 ```
+
+
+------
+
+
+- Throughput of vllm.
+  - Metric: throughput (request per second)
+  - Input length: 200 prompts from ShareGPT.
+  - Output length: the corresponding output length of these 200 prompts.
+
+
+```js
+
+const latencyTableData = [];
+
+for (let test of ["throughput_llama8B_tp1", "throughput_llama70B_tp4", "throughput_mixtral8x7B_tp2"]) {
+
+
+  let data = ciData.filter((d) => d.test_name == test && d.metric == "Tput (req/s)");
+
+  let cur = calculateAverageValue(data, 0);
+  let oneday = calculateAverageValue(data, 1);
+  let oneweek = calculateAverageValue(data, 7);
+
+  latencyTableData.push({test,
+    "current": cur,
+    "oneday": 100 * (cur - oneday) / oneday,
+    "oneweek": 100 * (cur - oneweek) / oneweek,
+    "sparkline": makeSparkline(data)
+  });
+}
+
+
+
+display(
+  Inputs.table(latencyTableData,
+    {
+      columns: ["test", "current", "oneday", "oneweek", "sparkline"],
+      header: {
+        test: "Test name",
+        current: "Throughput",
+        oneday: "vs 1day ago",
+        oneweek: "vs 1week ago",
+        "sparkline": "Spark line"
+      },
+      format: {
+        current: (d) => d.toFixed(2),
+        oneday: (d) => htl.html`<span style="color:${interpolateColorThroughput(d)}"><b>${formatPercentage(d)}</b></span>`,
+        oneweek: (d) => htl.html`<span style="color:${interpolateColorThroughput(d)}"><b>${formatPercentage(d)}</b></span>`,
+        sparkline: (d) => htl.html`${d}`,
+        },
+        layout: "fixed",
+    }));
+```
+
+------
+
+
+- Serving test of vllm
+  - Metrics: mean TTFT (time-to-first-token, unit: ms) & mean ITL (inter-token latency, unit: ms)
+  - Input length: 200 prompts from ShareGPT.
+  - Output length: the corresponding output length of these 200 prompts.
+  - Average QPS: 1, 4, 16 and inf. QPS = inf means all requests come at once.
+
+
+
+```js
+const tableData = [];
+
+for (let model of ["llama8B_tp1", "llama70B_tp4", "mixtral8x7B_tp2"]) {
+  for (let qps of ["1", "4", "16"]) {
+    const test = `serving_${model}_sharegpt_qps_${qps}`;
+
+    const dataTTFT = ciData.filter((d) => d.test_name == test && d.metric == "Mean TTFT (ms)");
+    const latestTTFT = calculateAverageValue(dataTTFT, 0);
+    const oneDayTTFT = calculateAverageValue(dataTTFT, 1);
+    const oneWeekTTFT = calculateAverageValue(dataTTFT, 7);
+
+    const dataITL = ciData.filter((d) => d.test_name == test && d.metric == "Mean ITL (ms)");
+    const latestITL = dataITL[dataITL.length - 1].value.toFixed(2);
+    const oneDayITL = calculateAverageValue(dataITL, 1);
+    const oneWeekITL = calculateAverageValue(dataITL, 7);
+    
+    tableData.push({ model, qps,
+      ttftLatest: latestTTFT,
+      ttftOneDay: (latestTTFT - oneDayTTFT) / oneDayTTFT,
+      ttftOneWeek: (latestTTFT - oneWeekTTFT) / oneWeekTTFT,
+      ttftSparkline: makeSparkline(dataTTFT),
+      itlLatest: latestITL,
+      itlOneDay: (latestITL - oneDayITL) / oneDayITL,
+      itlOneWeek: (latestITL - oneWeekITL) / oneWeekITL,
+      itlSparkline: makeSparkline(dataITL),
+    });
+
+  }
+}
+
+display(
+  Inputs.table(tableData,
+    {
+      columns: ["model", "qps", "ttftLatest", "ttftOneDay", "ttftOneWeek", "itlLatest", "itlOneDay", "itlOneWeek", "ttftSparkline", "itlSparkline"],
+      header: {
+        model: "Model",
+        qps: "QPS",
+        ttftLatest: "TTFT",
+        ttftOneDay: "vs 1day ago",
+        ttftOneWeek: "vs 1week ago",
+        itlLatest: "ITL",
+        itlOneDay: "vs 1day ago",
+        itlOneWeek: "vs 1week ago",
+        ttftSparkline: "TTFT",
+        itlSparkline: "ITL",
+      },
+      format: {
+        ttftOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        ttftOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        itlOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        itlOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        ttftSparkline: (d) => htl.html`${d}`,
+        itlSparkline: (d) => htl.html`${d}`,
+        },
+      layout: "auto"
+    }));
+```
+
+
+-------------
+
+
+# Latency tests
+
+
+
 
 
 
@@ -226,27 +368,6 @@ This test suite aims to test vLLM's end-to-end latency under a controlled setup.
 
 
 
-<!-- 
-### Latency sparklines
-
-```js
-const llama3_8b = ciData.filter((d) => d.test_name == "latency_llama8B_tp1" && d.metric == "Mean latency (ms)")
-const llama3_8b_latest = llama3_8b[llama3_8b.length - 1].value.toFixed(2);
-
-const llama3_70b = ciData.filter((d) => d.test_name == "latency_llama70B_tp4" && d.metric == "Mean latency (ms)")
-const llama3_70b_latest = llama3_70b[llama3_70b.length - 1].value.toFixed(2);
-
-const mixtral_8x7b = ciData.filter((d) => d.test_name == "latency_mixtral8x7B_tp2" && d.metric == "Mean latency (ms)")
-const mixtral_8x7b_latest = mixtral_8x7b[mixtral_8x7b.length - 1].value.toFixed(2);
-```
-
-
-
-Llama-3 8B on A100 ${makeSparkline(llama3_8b)}: ${llama3_8b_latest}ms.
-
-Llama-3 70B on 4xA100 ${makeSparkline(llama3_70b)}: ${llama3_70b_latest}ms.
-
-Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b)}: ${mixtral_8x7b_latest}ms. -->
 
 
 ### Plot
@@ -300,51 +421,6 @@ display(makeCombinedPlot(combinedData, { title: "Latency (ms)" }));
 # Throughput tests
 
 
-### TL;DR
-
-
-```js
-
-const latencyTableData = [];
-
-for (let test of ["throughput_llama8B_tp1", "throughput_llama70B_tp4", "throughput_mixtral8x7B_tp2"]) {
-
-
-  let data = ciData.filter((d) => d.test_name == test && d.metric == "Tput (req/s)");
-
-  let cur = calculateAverageValue(data, 0);
-  let oneday = calculateAverageValue(data, 1);
-  let oneweek = calculateAverageValue(data, 7);
-
-  latencyTableData.push({test,
-    "current": cur,
-    "oneday": 100 * (cur - oneday) / oneday,
-    "oneweek": 100 * (cur - oneweek) / oneweek,
-    "sparkline": makeSparkline(data)
-  });
-}
-
-
-
-display(
-  Inputs.table(latencyTableData,
-    {
-      columns: ["test", "current", "oneday", "oneweek", "sparkline"],
-      header: {
-        test: "Test name",
-        current: "Current throughput (req/s)",
-        oneday: "Compared to one day ago",
-        oneweek: "Compared to one week ago",
-        "sparkline": "Spark line"
-      },
-      format: {
-        current: (d) => d.toFixed(2),
-        oneday: (d) => htl.html`<span style="color:${interpolateColorThroughput(d)}"><b>${formatPercentage(d)}</b></span>`,
-        oneweek: (d) => htl.html`<span style="color:${interpolateColorThroughput(d)}"><b>${formatPercentage(d)}</b></span>`,
-        sparkline: (d) => htl.html`${d}`,
-        }
-    }));
-```
 
 ### Description
 
@@ -356,22 +432,7 @@ This test suite aims to test vLLM's throughput.
 - Batch size: dynamically determined by vllm to achieve maximum throughput.
 - Evaluation metrics: throughput.
 
-<!-- ```js
-const llama3_8b_tp1 = ciData.filter((d) => d.test_name == "throughput_llama8B_tp1" && d.metric == "Tput (req/s)")
-const llama3_8b_tp1_latest = llama3_8b_tp1[llama3_8b_tp1.length - 1].value.toFixed(2);
 
-const llama3_70b_tp4 = ciData.filter((d) => d.test_name == "throughput_llama70B_tp4" && d.metric == "Tput (req/s)")
-const llama3_70b_tp4_latest = llama3_70b_tp4[llama3_70b_tp4.length - 1].value.toFixed(2);
-
-const mixtral_8x7b_tp2 = ciData.filter((d) => d.test_name == "throughput_mixtral8x7B_tp2" && d.metric == "Tput (req/s)")
-const mixtral_8x7b_tp2_latest = mixtral_8x7b_tp2[mixtral_8x7b_tp2.length - 1].value.toFixed(2);
-```
-
-Llama-3 8B on A100 ${makeSparkline(llama3_8b_tp1)}: ${llama3_8b_tp1_latest} req/s.
-
-Llama-3 70B on 4xA100 ${makeSparkline(llama3_70b_tp4)}: ${llama3_70b_tp4_latest} req/s.
-
-Mixtral 8x7B on 2xA100 ${makeSparkline(mixtral_8x7b_tp2)}: ${mixtral_8x7b_tp2_latest} req/s. -->
 
 ### Plot
 
@@ -411,14 +472,11 @@ for (let metric of throughputMetricSelected) {
 display(makeCombinedPlot(combinedData, { title: "Throughput" }));
 ```
 
-
--------
-
+------
 
 # Serving Benchmark (on ShareGPT)
 
 
-### TL;DR
 
 
 
@@ -437,63 +495,8 @@ const servingTest = [
   "serving_mixtral8x7B_tp2_sharegpt_qps_16",
   "serving_mixtral8x7B_tp2_sharegpt_qps_inf"
 ];
-
-const tableData = [];
-
-for (let model of ["llama8B_tp1", "llama70B_tp4", "mixtral8x7B_tp2"]) {
-  for (let qps of ["1", "4", "16"]) {
-    const test = `serving_${model}_sharegpt_qps_${qps}`;
-
-    const dataTTFT = ciData.filter((d) => d.test_name == test && d.metric == "Mean TTFT (ms)");
-    const latestTTFT = calculateAverageValue(dataTTFT, 0);
-    const oneDayTTFT = calculateAverageValue(dataTTFT, 1);
-    const oneWeekTTFT = calculateAverageValue(dataTTFT, 7);
-
-    const dataITL = ciData.filter((d) => d.test_name == test && d.metric == "Mean ITL (ms)");
-    const latestITL = dataITL[dataITL.length - 1].value.toFixed(2);
-    const oneDayITL = calculateAverageValue(dataITL, 1);
-    const oneWeekITL = calculateAverageValue(dataITL, 7);
-    
-    tableData.push({ model, qps,
-      ttftLatest: latestTTFT,
-      ttftOneDay: (latestTTFT - oneDayTTFT) / oneDayTTFT,
-      ttftOneWeek: (latestTTFT - oneWeekTTFT) / oneWeekTTFT,
-      ttftSparkline: makeSparkline(dataTTFT),
-      itlLatest: latestITL,
-      itlOneDay: (latestITL - oneDayITL) / oneDayITL,
-      itlOneWeek: (latestITL - oneWeekITL) / oneWeekITL,
-      itlSparkline: makeSparkline(dataITL),
-    });
-
-  }
-}
-
-display(
-  Inputs.table(tableData,
-    {
-      columns: ["model", "qps", "ttftLatest", "ttftOneDay", "ttftOneWeek", "ttftSparkline", "itlLatest", "itlOneDay", "itlOneWeek", "itlSparkline"],
-      header: {
-        model: "Model",
-        qps: "QPS",
-        ttftLatest: "Mean TTFT (ms)",
-        ttftOneDay: "Comp. to one day ago",
-        ttftOneWeek: "Comp. to one week ago",
-        itlLatest: "Mean ITL (ms)",
-        itlOneDay: "Comp. to one day ago",
-        itlOneWeek: "Comp. to one week ago",
-        ttftSparkline: "TTFT",
-        itlSparkline: "ITL",
-      },
-      format: {
-        ttftOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
-        ttftOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
-        itlOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
-        itlOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
-        ttftSparkline: (d) => htl.html`${d}`,
-        itlSparkline: (d) => htl.html`${d}`,
-        }
-    }));
 ```
+
 
 ### Description
 
