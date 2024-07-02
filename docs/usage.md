@@ -8,23 +8,18 @@ sql:
 
 Currently showing very high level summary of the usage data we collected to guide model and hardware optimizations. The Y-axis is the number of vLLM processes running on a given day.
 
-```js
-const filterWhales = view(Inputs.toggle({label: "Filter Whales", value: true}));
-```
-
 ## By GPU Type
 
 ```sql id=usage_stats_by_gpu_type
 WITH filtered_usage AS (
   SELECT *
   FROM usage_stats
-  WHERE is_whale <= ${filterWhales ? 0 : 1}
 ),
 ranked_usage AS (
     SELECT
         gpu_type,
-        SUM(total_gpu_hours) / 7 AS total_hours,
-        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 7 DESC) AS rank
+        SUM(total_gpu_hours) / 30 AS total_hours,
+        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 30 DESC) AS rank
     FROM
         filtered_usage
     GROUP BY
@@ -75,13 +70,12 @@ display(
 WITH filtered_usage AS (
   SELECT *
   FROM usage_stats
-  WHERE is_whale <= ${filterWhales ? 0 : 1}
 ),
 ranked_usage AS (
     SELECT
         model_architecture_tp,
-        SUM(total_gpu_hours) / 7 AS total_hours,
-        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 7 DESC) AS rank
+        SUM(total_gpu_hours) / 30 AS total_hours,
+        RANK() OVER (ORDER BY SUM(total_gpu_hours) / 30 DESC) AS rank
     FROM
         filtered_usage
     GROUP BY
@@ -131,7 +125,6 @@ display(
 ```sql id=usage_stats_by_usage_context
 SELECT day_stamp, context, sum(total_gpu_hours) as total_gpu_hours
 FROM usage_stats
-WHERE is_whale <= ${filterWhales ? 0 : 1}
 GROUP BY day_stamp, context
 ORDER BY day_stamp, context
 ```

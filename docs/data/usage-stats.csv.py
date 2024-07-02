@@ -31,10 +31,10 @@ print("Filtering by models:", models, file=sys.stderr)
 cursor = connection.cursor()
 
 cursor.execute(f"""
-WITH last_7_days AS
+WITH last_30_days AS
 (
   SELECT date_sub(current_date(), d) AS day_stamp
-  FROM (SELECT posexplode(sequence(1, 7)) AS (pos, d))
+  FROM (SELECT posexplode(sequence(1, 30)) AS (pos, d))
 ),
 
 daily_usage AS
@@ -52,18 +52,15 @@ WHERE model_architecture IN {tuple(models)}
 day_exploded AS
 (
 SELECT *
-FROM last_7_days
+FROM last_30_days
   JOIN daily_usage
-WHERE last_7_days.day_stamp <= daily_usage.ending_time
-  AND  last_7_days.day_stamp >= daily_usage.starting_time
+WHERE last_30_days.day_stamp <= daily_usage.ending_time
+  AND  last_30_days.day_stamp >= daily_usage.starting_time
 ORDER BY day_stamp
 )
 
 SELECT day_stamp, gpu_type, model_architecture_tp, context,
-       ip LIKE "221.194.167.%" as is_whale,
-       -- count(*) as num_instances,
        sum(gpu_hour_per_day) as total_gpu_hours
-       -- sum(usage_hour_per_day) as total_usage_hours
 FROM day_exploded
 GROUP BY day_stamp, gpu_type, model_architecture_tp, context, ip
 """)
