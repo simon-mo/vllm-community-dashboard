@@ -44,3 +44,8 @@ jobs:
         env:
           # Authentication information. See below for how to set this up.
           OBSERVABLE_TOKEN: ${{ secrets.OBSERVABLE_TOKEN }}
+      - name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        # if: ${{ failure() }}
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
