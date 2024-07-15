@@ -46,6 +46,6 @@ jobs:
           OBSERVABLE_TOKEN: ${{ secrets.OBSERVABLE_TOKEN }}
       - name: Slack Notification
         uses: rtCamp/action-slack-notify@v2
-        # if: ${{ failure() }}
+        if: ${{ failure() }}
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
