@@ -16,8 +16,8 @@ def log(msg):
     print(msg, file=sys.stderr)
 
 
-def get_builds(org_slug, branch, token, days=30):
-    url = f"https://api.buildkite.com/v2/organizations/{org_slug}/builds"
+def get_builds(org_slug, pipeline_slug, branch, token, days=30):
+    url = f"https://api.buildkite.com/v2/organizations/{org_slug}/pipelines/{pipeline_slug}/builds"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
@@ -90,6 +90,7 @@ async def get_benchmark_results_and_save(org_slug, pipeline_slug, build_number,
 
 API_TOKEN = os.environ["BUILDKIT_API_TOKEN"]
 ORG_SLUG = "vllm"
+PIPELINE_SLUG = "performance-benchmark"
 BRANCH = "main"
 cache_dir = "/tmp/buildkite_logs"
 os.makedirs(cache_dir, exist_ok=True)
@@ -112,8 +113,8 @@ async def download_and_cache(raw_log_url, filepath, commit, commit_url,
 
 
 async def main():
-    builds = get_builds(ORG_SLUG, BRANCH, API_TOKEN)
-    log(f"Found {len(builds)} builds for {BRANCH} branch")
+    builds = get_builds(ORG_SLUG, PIPELINE_SLUG, BRANCH, API_TOKEN)
+    log(f"Found {len(builds)} builds for {BRANCH} branch on {PIPELINE_SLUG}")
 
     values = []
 
@@ -142,7 +143,8 @@ async def main():
         # find if the build contains the benchmarking data
         contains_benchmark = False
         for job in build.get('jobs', []):
-            if 'name' in job and job['name'] == "A100 Benchmark":
+            if 'name' in job and (job['name'].startswith("A100")
+                                  or job['name'].startswith("H100")):
                 contains_benchmark = True
                 break
         if not contains_benchmark:

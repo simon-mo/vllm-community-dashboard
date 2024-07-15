@@ -11,7 +11,7 @@ Please select a hardware. All plots down below will only show results of the sel
 ```js
 
 const hardware = [
-  "A100",
+  "A100", "H100",
 ];
 
 const hardwareSelected = view(
@@ -303,7 +303,7 @@ for (let model of ["llama8B_tp1", "llama70B_tp4", "mixtral8x7B_tp2"]) {
     const latestITL = dataITL[dataITL.length - 1].value.toFixed(2);
     const oneDayITL = calculateAverageValue(dataITL, 1);
     const oneWeekITL = calculateAverageValue(dataITL, 7);
-    
+
     tableData.push({ model, qps,
       ttftLatest: latestTTFT,
       ttftOneDay: (latestTTFT - oneDayTTFT) / oneDayTTFT,
