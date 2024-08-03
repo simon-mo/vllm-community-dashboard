@@ -134,8 +134,8 @@ async def main():
     for build in builds:
 
         # skip running builds
-        if build['state'] == "running":
-            continue
+        # if build['state'] == "running":
+        #     continue
 
         commit = build['commit']
         commit_url = f"{build['pipeline']['repository'].replace('.git', '')}/commit/{build['commit']}"
