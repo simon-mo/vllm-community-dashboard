@@ -3,6 +3,7 @@ import io
 import logging
 import sys
 from databricks import sql
+import zipfile
 import requests
 
 logging.basicConfig(level=logging.DEBUG)
@@ -66,11 +67,10 @@ GROUP BY day_stamp, gpu_type, model_architecture_tp, context, ip
 """)
 
 df = cursor.fetchall_arrow().to_pandas()
+df.to_csv('/tmp/usage-stats.csv.zip', compression={'method': 'zip', 'compresslevel': 9})
 
-buff = io.StringIO()
-df.to_csv(buff, index=False)
-buff.seek(0)
-print(buff.getvalue())
+with open('/tmp/usage-stats.csv.zip', 'rb') as f:
+    sys.stdout.buffer.write(f.read())
 
 cursor.close()
 connection.close()
