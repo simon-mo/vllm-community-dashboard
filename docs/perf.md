@@ -35,7 +35,10 @@ const commitShaToValues = commitData.reduce((acc, d) => {
   return acc;
 }, {});
 
-let ciDataFull = (await FileAttachment("./data/ci-perf-benchmark/ci-perf-benchmark.csv").csv()).map(
+const zip = FileAttachment("./data/ci-perf-benchmark.zip").zip()
+const ciDataFullUnzip = zip.then((zip) => zip.file("ci-perf-benchmark.csv").csv({typed: true}));
+
+let ciDataFull = (await ciDataFullUnzip).map(
   (d) => {
     d["commit_message"] =
       commitShaToValues[d["commit"]]?.message.split("\n")[0];
