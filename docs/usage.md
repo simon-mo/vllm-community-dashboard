@@ -1,12 +1,16 @@
 ---
 toc: false
-sql:
-    usage_stats: ./data/usage-stats/usage-stats.csv
 ---
 
 # Usage Data
 
 Currently showing very high level summary of the usage data we collected to guide model and hardware optimizations. The Y-axis is the number of vLLM processes running on a given day.
+
+```js
+const zip = FileAttachment("./data/usage-stats.zip").zip();
+const usage_stats_data = await zip.then((zip) => zip.file("usage-stats.csv").csv({typed: true}));
+const sql = DuckDBClient.sql({usage_stats: usage_stats_data});
+```
 
 ## By GPU Type
 
