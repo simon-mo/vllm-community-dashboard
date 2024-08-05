@@ -179,7 +179,7 @@ async def main():
         id_vars=["commit", "commit_url", "build_datetime", "test_name", "GPU"],
         var_name="metric",
         value_name="value")
-    df.to_csv("/tmp/ci-perf-benchmark.csv.zip", index=False)
+    df.to_csv("/tmp/ci-perf-benchmark.csv.zip", index=False, compression={'method': 'zip', 'compresslevel': 9})
     with open('/tmp/ci-perf-benchmark.csv.zip', 'rb') as f:
         sys.stdout.buffer.write(f.read())
 
