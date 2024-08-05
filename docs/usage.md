@@ -1,7 +1,7 @@
 ---
 toc: false
 sql:
-    usage_stats: ./data/usage-stats.csv
+    usage_stats: ./data/usage-stats/usage-stats.csv
 ---
 
 # Usage Data
@@ -143,4 +143,4 @@ display(
       ]
     })
   ))
-```
+``` 
