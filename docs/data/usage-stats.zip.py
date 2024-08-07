@@ -23,8 +23,9 @@ lines = model_registry.split("\n")
 start = [
     i for i, line in enumerate(lines) if line.startswith("_GENERATION_MODELS")
 ][0]
-end = [i for i, line in enumerate(lines) if line.startswith("_MODELS")][0]
-model_registry = "\n".join(lines[start:end + 1])
+end = [i for i, line in enumerate(lines) if line.startswith("_OOT_MODELS")][0]
+model_registry = "\n".join(lines[start:end])
+from typing import *
 eval(compile(model_registry, "<string>", "exec"))
 models = list(_MODELS.keys())
 print("Filtering by models:", models, file=sys.stderr)
