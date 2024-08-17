@@ -4,7 +4,7 @@ toc: false
 
 # CI Benchmark
 
-This is the performance benchmark for [vllm github repo](https://github.com/vllm-project/vllm).
+This is the performance benchmark for [vllm github repo](https://github.com/vllm-project/vllm) This benchmark is facing towards developers.
 
 # Hardware
 Please select a hardware. All plots down below will only show results of the selected hardware (more hardware is coming).
@@ -115,7 +115,7 @@ function calculateAverageValue(data, daysBefore) {
   targetDate.setDate(targetDate.getDate() - daysBefore);
 
   const filteredData = data.filter(
-    (d) => d.build_datetime.toDateString() === targetDate.toDateString()
+    (d) => d.build_datetime.toDateString() <= targetDate.toDateString()
   );
 
   const latestCommits = filteredData
@@ -176,7 +176,7 @@ let ciData = ciDataFull.filter((d) => d.GPU.includes(hardwareSelected));
 
 
 - Latency of vllm.
-  - Metric: mean end-to-end latency (ms)
+  - Metric: median end-to-end latency (ms). We use median as it is more stable than mean when outliers occur.
   - Input length: 32 tokens.
   - Output length: 128 tokens.
 
@@ -188,7 +188,7 @@ const latencyTableData = [];
 for (let test of ["latency_llama8B_tp1", "latency_llama70B_tp4", "latency_mixtral8x7B_tp2"]) {
 
 
-  let data = ciData.filter((d) => d.test_name == test && d.metric == "Mean latency (ms)");
+  let data = ciData.filter((d) => d.test_name == test && d.metric == "Median latency (ms)");
 
   let cur = calculateAverageValue(data, 0);
   let oneday = calculateAverageValue(data, 1);
@@ -283,7 +283,7 @@ display(
 
 
 - Serving test of vllm
-  - Metrics: mean TTFT (time-to-first-token, unit: ms) & mean ITL (inter-token latency, unit: ms)
+  - Metrics: median TTFT (time-to-first-token, unit: ms) & median ITL (inter-token latency, unit: ms). We use median as it is more stable than mean when outliers occur.
   - Input length: 200 prompts from ShareGPT.
   - Output length: the corresponding output length of these 200 prompts.
   - Average QPS: 1, 4, 16 and inf. QPS = inf means all requests come at once.
@@ -297,12 +297,12 @@ for (let model of ["llama8B_tp1", "llama70B_tp4", "mixtral8x7B_tp2"]) {
   for (let qps of ["1", "4", "16"]) {
     const test = `serving_${model}_sharegpt_qps_${qps}`;
 
-    const dataTTFT = ciData.filter((d) => d.test_name == test && d.metric == "Mean TTFT (ms)");
+    const dataTTFT = ciData.filter((d) => d.test_name == test && d.metric == "Median TTFT (ms)");
     const latestTTFT = calculateAverageValue(dataTTFT, 0);
     const oneDayTTFT = calculateAverageValue(dataTTFT, 1);
     const oneWeekTTFT = calculateAverageValue(dataTTFT, 7);
 
-    const dataITL = ciData.filter((d) => d.test_name == test && d.metric == "Mean ITL (ms)");
+    const dataITL = ciData.filter((d) => d.test_name == test && d.metric == "Median ITL (ms)");
     const latestITL = dataITL[dataITL.length - 1].value.toFixed(2);
     const oneDayITL = calculateAverageValue(dataITL, 1);
     const oneWeekITL = calculateAverageValue(dataITL, 7);
@@ -397,7 +397,7 @@ const latencyMetrics = [
 const latencyMetricSelected = view(
   Inputs.checkbox(latencyMetrics, {
     label: "Latency metrics",
-    value: ["Mean latency (ms)"],
+    value: ["Median latency (ms)"],
   })
 );
 ```
@@ -543,7 +543,7 @@ const servingLatencyMetrics = [
 const servingLatencyMetricsSelected = view(
   Inputs.checkbox(servingLatencyMetrics, {
     label: "Latency metrics",
-    value: ["Mean TTFT (ms)"],
+    value: ["Median TTFT (ms)"],
   })
 );
 ```
