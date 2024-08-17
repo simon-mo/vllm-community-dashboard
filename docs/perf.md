@@ -350,6 +350,80 @@ display(
 ```
 
 
+
+- We also test speculative decoding in vllm serving test. Concretely:
+  - Metrics: median TTFT (time-to-first-token, unit: ms) & median ITL (inter-token latency, unit: ms). We use median as it is more stable than mean when outliers occur.
+  - Input length: 200 prompts from ShareGPT.
+  - Output length: the corresponding output length of these 200 prompts.
+  - Draft model: Qwama-0.5B
+  - Number of tokens proposed per step: 4
+  - Average QPS: 2.
+
+
+
+```js
+
+const spectableData = []
+
+for (let test of ["serving_llama70B_tp4_sharegpt_specdecode_qps_2"]) {
+
+  const qps = 2;
+  const model = "llama70B_tp4";
+
+  const dataTTFT = ciData.filter((d) => d.test_name == test && d.metric == "Median TTFT (ms)");
+  const latestTTFT = calculateAverageValue(dataTTFT, 0);
+  const oneDayTTFT = calculateAverageValue(dataTTFT, 1);
+  const oneWeekTTFT = calculateAverageValue(dataTTFT, 7);
+
+  const dataITL = ciData.filter((d) => d.test_name == test && d.metric == "Median ITL (ms)");
+  const latestITL = dataITL[dataITL.length - 1].value.toFixed(2);
+  const oneDayITL = calculateAverageValue(dataITL, 1);
+  const oneWeekITL = calculateAverageValue(dataITL, 7);
+
+  spectableData.push({ model, qps,
+    ttftLatest: latestTTFT,
+    ttftOneDay: (latestTTFT - oneDayTTFT) / oneDayTTFT,
+    ttftOneWeek: (latestTTFT - oneWeekTTFT) / oneWeekTTFT,
+    ttftSparkline: makeSparkline(dataTTFT),
+    itlLatest: latestITL,
+    itlOneDay: (latestITL - oneDayITL) / oneDayITL,
+    itlOneWeek: (latestITL - oneWeekITL) / oneWeekITL,
+    itlSparkline: makeSparkline(dataITL),
+  });
+
+}
+
+display(
+  Inputs.table(spectableData,
+    {
+      columns: ["model", "qps", "ttftLatest", "ttftOneDay", "ttftOneWeek", "itlLatest", "itlOneDay", "itlOneWeek", "ttftSparkline", "itlSparkline"],
+      header: {
+        model: "Model",
+        qps: "QPS",
+        ttftLatest: "TTFT",
+        ttftOneDay: "vs 1day ago",
+        ttftOneWeek: "vs 1week ago",
+        itlLatest: "ITL",
+        itlOneDay: "vs 1day ago",
+        itlOneWeek: "vs 1week ago",
+        ttftSparkline: "TTFT",
+        itlSparkline: "ITL",
+      },
+      format: {
+        ttftOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        ttftOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        itlOneDay: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        itlOneWeek: (d) => htl.html`<span style="color:${interpolateColorLatency(d)}"><b>${formatPercentage(d)}</b></span>`,
+        ttftSparkline: (d) => htl.html`${d}`,
+        itlSparkline: (d) => htl.html`${d}`,
+        },
+      layout: "auto"
+    }));
+
+```
+
+
+
 -------------
 
 
@@ -496,7 +570,8 @@ const servingTest = [
   "serving_mixtral8x7B_tp2_sharegpt_qps_1",
   "serving_mixtral8x7B_tp2_sharegpt_qps_4",
   "serving_mixtral8x7B_tp2_sharegpt_qps_16",
-  "serving_mixtral8x7B_tp2_sharegpt_qps_inf"
+  "serving_mixtral8x7B_tp2_sharegpt_qps_inf",
+  "serving_llama70B_tp4_sharegpt_specdecode_qps_2",
 ];
 ```
 
