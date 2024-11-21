@@ -41,7 +41,7 @@ def get_builds(org_slug, pipeline_slug, branch, token, days=30):
     while url:
         response = requests.get(url, headers=headers, params=params)
         check_rate_limit(response)  # Check the rate limit status
-        
+
         if response.status_code == 200:
             all_builds.extend(response.json())
             link_header = response.headers.get('Link', None)
@@ -150,7 +150,7 @@ async def main():
     download_tasks = []
     for idx, build in enumerate(builds):
 
-        
+
         log(f"Processing build {idx + 1}/{len(builds)}")
 
         # skip running builds
@@ -164,7 +164,8 @@ async def main():
         contains_benchmark = False
         for job in build.get('jobs', []):
             if 'name' in job and (job['name'].startswith("A100")
-                                  or job['name'].startswith("H100")):
+                                  or job['name'].startswith("H100")
+                                  or job['name'].startswith("H200")):
                 contains_benchmark = True
                 break
         if not contains_benchmark:

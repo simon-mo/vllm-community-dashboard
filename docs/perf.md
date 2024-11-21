@@ -11,7 +11,7 @@ Please select a hardware. All plots down below will only show results of the sel
 ```js
 
 const hardware = [
-  "A100", "H100",
+  "A100", "H100", "H200",
 ];
 
 const hardwareSelected = view(
