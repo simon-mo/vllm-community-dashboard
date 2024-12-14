@@ -139,6 +139,8 @@ async def main():
         with open(filepath, "r") as f:
             logs = f.read()
             results = json.loads(logs)
+            if len(results) == 0:
+                return
             df = pd.DataFrame.from_dict(results)
             df['commit'] = commit
             df['commit_url'] = commit_url
