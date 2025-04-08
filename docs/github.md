@@ -8,11 +8,11 @@ Gathered from commits over last 14 days. Look at time to commit, and major featu
 
 ```js
 const pulls = await FileAttachment("./data/vllm-commits-pulls.json").json();
-const tgiPulls = await FileAttachment("./data/tgi-commits-pulls.json").json();
+const sglPulls = await FileAttachment("./data/sgl-commits-pulls.json").json();
 
 const bothPulls = [
   ...pulls.map((d) => ({ ...d, repo: "vLLM" })),
-  ...tgiPulls.map((d) => ({ ...d, repo: "TGI" })),
+  ...sglPulls.map((d) => ({ ...d, repo: "SGL" })),
 ];
 
 // display(Plot.plot({
@@ -48,7 +48,7 @@ display(
         Plot.binX(
           { y: "count" },
           {
-            filter: (d) => d.repo === "TGI",
+            filter: (d) => d.repo === "SGL",
             x: "durationDays",
             fill: "repo",
             insetRight: 0,
@@ -79,14 +79,14 @@ display(Inputs.table(pulls, {
 }));
 ```
 
-## TGI
+## SGL
 
-Number of PRs merged: ${ tgiPulls.length }.
+Number of PRs merged: ${ sglPulls.length }.
 
 ### PRs merged
 
 ```js
-display(Inputs.table(tgiPulls, {
+display(Inputs.table(sglPulls, {
   columns: ["number", "title", "durationDays", "lines", "author"],
   layout: "fixed",
   width: {

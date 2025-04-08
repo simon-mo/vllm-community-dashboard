@@ -4,8 +4,8 @@ let startAfterDate = new Date();
 startAfterDate.setDate(startAfterDate.getDate() - 14);
 
 const data = await getPullDataFromCommit(
-  "huggingface",
-  "text-generation-inference",
+  "sgl-project",
+  "sglang",
   startAfterDate
 );
 

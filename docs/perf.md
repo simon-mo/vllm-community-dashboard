@@ -4,7 +4,9 @@ toc: false
 
 # CI Benchmark
 
-This is the performance benchmark for [vllm github repo](https://github.com/vllm-project/vllm) This benchmark is facing towards developers.
+Update [04/08/2025]: We are currently working on reorganizing the compute for performance benchmark. In the meantime, please reference PyTorch Hub's Dashboard for vLLM: https://hud.pytorch.org/benchmark/llms?repoName=vllm-project/vllm
+
+<!-- This is the performance benchmark for [vllm github repo](https://github.com/vllm-project/vllm) This benchmark is facing towards developers.
 
 # Hardware
 Please select a hardware. All plots down below will only show results of the selected hardware (more hardware is coming).
@@ -700,4 +702,4 @@ display(
     reverse: true,
   })
 );
-```
+``` -->
